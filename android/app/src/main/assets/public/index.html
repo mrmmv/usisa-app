@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>USISA Mobile AI — 360° Citrus Diagnostic Android App</title>
+  <meta name="description" content="USISA Mobile Android App for 360-Degree Calamansi Leaf & Fruit Disease Detection & Weather Agronomy.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="./usisa-logo.png">
+  <script type="module" crossorigin src="./assets/index-DTnJMEQb.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CnXDe0cp.css">
+</head>
+<body>
+  <!-- 3D WebGL Background Canvas -->
+  <canvas id="bg-3d-canvas" class="bg-3d-canvas"></canvas>
+
+  <!-- Mobile Android Container Shell -->
+  <div class="mobile-app-shell">
+    
+    <!-- Android Simulated Status Bar -->
+    <div class="android-status-bar">
+      <span class="status-bar-time" id="status-clock">09:41 AM</span>
+      <div class="status-bar-icons">
+        <i data-lucide="wifi"></i>
+        <i data-lucide="signal"></i>
+        <i data-lucide="battery-charging"></i>
+      </div>
+    </div>
+
+    <!-- Android App Top Bar -->
+    <header class="android-app-bar">
+      <button class="app-brand-btn" id="app-brand-btn" title="Open USISA Navigation Menu">
+        <div class="app-logo-badge">
+          <img src="./usisa-logo.png" alt="USISA Logo" class="app-logo-img">
+        </div>
+        <div class="app-title-group">
+          <h1>USISA <span class="android-badge">ANDROID AI</span> <i data-lucide="chevron-down" class="brand-dropdown-arrow"></i></h1>
+          <span class="app-subtitle-text" data-i18n="header-subtitle">360° Citrus Health & Agronomy</span>
+        </div>
+      </button>
+
+      <div class="app-header-actions">
+        <div class="sync-live-badge" id="app-sync-indicator" title="Cloud Sync Active">
+          <span class="pulse-dot"></span>
+          <span>SYNCED</span>
+        </div>
+        <button class="icon-btn-chip" id="top-weather-btn" title="Live Weather Sync">
+          <i data-lucide="cloud-sun"></i>
+        </button>
+        <div class="user-avatar-chip" id="user-avatar-initials" title="Profile">US</div>
+      </div>
+    </header>
+
+    <!-- Mobile Scrollable Viewport -->
+    <main class="mobile-viewport">
+
+      <!-- SCREEN 1: 360° VISION SCAN & DIAGNOSIS -->
+      <section id="screen-scan" class="mobile-screen active">
+        
+        <!-- Weather Horizontal Scroll Strip -->
+        <div class="weather-scroll-strip">
+          <div class="weather-chip-card">
+            <i data-lucide="sun"></i>
+            <span class="weather-chip-label" data-i18n="w-label-temp">Weather</span>
+            <span class="weather-chip-val" id="w-temp">29.4°C</span>
+          </div>
+          <div class="weather-chip-card">
+            <i data-lucide="droplets"></i>
+            <span class="weather-chip-label" data-i18n="w-label-hum">Humidity</span>
+            <span class="weather-chip-val" id="w-humidity">78% RH</span>
+          </div>
+          <div class="weather-chip-card">
+            <i data-lucide="cloud-rain"></i>
+            <span class="weather-chip-label" data-i18n="w-label-rain">Rainfall</span>
+            <span class="weather-chip-val" id="w-rain">35% Chance</span>
+          </div>
+          <div class="weather-chip-card">
+            <i data-lucide="layers"></i>
+            <span class="weather-chip-label" data-i18n="w-label-soil">Soil Moisture</span>
+            <span class="weather-chip-val" id="w-soil" style="color:var(--citrus-gold);">62% Optimal</span>
+          </div>
+        </div>
+
+        <!-- 3D Turntable Motor Rig Card -->
+        <div class="m3-card mobile-turntable-card">
+          <div class="m3-card-header" style="width:100%;">
+            <div class="m3-card-title">
+              <i data-lucide="rotate-cw"></i>
+              <span data-i18n="turntable-header">360° Motorized Rig</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="badge-tag" id="auto-scan-status-pill" style="background:rgba(245,158,11,0.15); color:var(--citrus-gold); font-size:10px;">
+                <span id="auto-scan-pill-text">Auto: OFF</span>
+              </span>
+              <span class="badge-tag tag-healthy" id="motor-status-badge">Idle (0°)</span>
+            </div>
+          </div>
+
+          <!-- Interactive 3D WebGL Turntable -->
+          <div class="turntable-3d-box" id="turntable-3d-container">
+            <div class="turntable-3d-hint">
+              <i data-lucide="orbit"></i> <span>Drag to rotate 3D view</span>
+            </div>
+          </div>
+
+          <!-- Angle Quick Selector Strip -->
+          <div class="angle-selector-strip">
+            <button class="angle-pill-btn active" data-angle="0">0° North</button>
+            <button class="angle-pill-btn" data-angle="90">90° West</button>
+            <button class="angle-pill-btn" data-angle="180">180° East</button>
+            <button class="angle-pill-btn" data-angle="270">270° South</button>
+          </div>
+
+          <div style="width:100%; margin-top:12px; display:flex; gap:8px;">
+            <button id="start-360-scan-btn" class="btn-m3 btn-m3-primary btn-block">
+              <i data-lucide="play-circle"></i> <span data-i18n="btn-start-scan">Start 360° Automated Scan</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4-Quadrant Camera Capture Grid -->
+        <div class="m3-card">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="layout-grid"></i>
+              <span data-i18n="quadrant-header">4-Angle Quadrants</span>
+            </div>
+            <button id="analyze-gemini-btn" class="btn-m3 btn-m3-primary" style="padding:6px 12px; font-size:11px;">
+              <i data-lucide="sparkles"></i> <span data-i18n="btn-gemini-analyze">Gemini AI</span>
+            </button>
+          </div>
+
+          <div class="quadrant-mobile-grid">
+            <!-- Angle 0° -->
+            <div class="quadrant-mobile-box active" id="quad-box-0">
+              <div class="quad-m-header">
+                <span class="quad-m-title" data-i18n="side-1">0° North</span>
+                <span class="quad-m-tag">Leaf Front</span>
+              </div>
+              <div class="quad-m-img-wrapper">
+                <img id="img-0" src="" alt="0 deg scan" style="display:none;">
+                <div class="quad-placeholder" id="placeholder-0">
+                  <i data-lucide="camera"></i>
+                  <span>No Frame</span>
+                </div>
+              </div>
+              <div class="quad-m-footer">
+                <button class="quad-upload-btn" onclick="triggerUpload(0)"><i data-lucide="upload"></i> Upload</button>
+              </div>
+              <input type="file" id="upload-0" accept="image/*" style="display:none">
+            </div>
+
+            <!-- Angle 90° -->
+            <div class="quadrant-mobile-box" id="quad-box-90">
+              <div class="quad-m-header">
+                <span class="quad-m-title" data-i18n="side-2">90° East</span>
+                <span class="quad-m-tag">East Canopy</span>
+              </div>
+              <div class="quad-m-img-wrapper">
+                <img id="img-90" src="" alt="90 deg scan" style="display:none;">
+                <div class="quad-placeholder" id="placeholder-90">
+                  <i data-lucide="camera"></i>
+                  <span>No Frame</span>
+                </div>
+              </div>
+              <div class="quad-m-footer">
+                <button class="quad-upload-btn" onclick="triggerUpload(90)"><i data-lucide="upload"></i> Upload</button>
+              </div>
+              <input type="file" id="upload-90" accept="image/*" style="display:none">
+            </div>
+
+            <!-- Angle 180° -->
+            <div class="quadrant-mobile-box" id="quad-box-180">
+              <div class="quad-m-header">
+                <span class="quad-m-title" data-i18n="side-3">180° South</span>
+                <span class="quad-m-tag">South Canopy</span>
+              </div>
+              <div class="quad-m-img-wrapper">
+                <img id="img-180" src="" alt="180 deg scan" style="display:none;">
+                <div class="quad-placeholder" id="placeholder-180">
+                  <i data-lucide="camera"></i>
+                  <span>No Frame</span>
+                </div>
+              </div>
+              <div class="quad-m-footer">
+                <button class="quad-upload-btn" onclick="triggerUpload(180)"><i data-lucide="upload"></i> Upload</button>
+              </div>
+              <input type="file" id="upload-180" accept="image/*" style="display:none">
+            </div>
+
+            <!-- Angle 270° -->
+            <div class="quadrant-mobile-box" id="quad-box-270">
+              <div class="quad-m-header">
+                <span class="quad-m-title" data-i18n="side-4">270° West</span>
+                <span class="quad-m-tag">West Canopy</span>
+              </div>
+              <div class="quad-m-img-wrapper">
+                <img id="img-270" src="" alt="270 deg scan" style="display:none;">
+                <div class="quad-placeholder" id="placeholder-270">
+                  <i data-lucide="camera"></i>
+                  <span>No Frame</span>
+                </div>
+              </div>
+              <div class="quad-m-footer">
+                <button class="quad-upload-btn" onclick="triggerUpload(270)"><i data-lucide="upload"></i> Upload</button>
+              </div>
+              <input type="file" id="upload-270" accept="image/*" style="display:none">
+            </div>
+          </div>
+        </div>
+
+        <!-- Gemini AI Mobile Diagnostic Report Card -->
+        <div class="m3-card">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="brain-circuit"></i>
+              <span data-i18n="gemini-report-title">Gemini AI Diagnostic Report</span>
+            </div>
+          </div>
+
+          <!-- Health Score Radial Ring Container -->
+          <div class="health-score-container no-scan" id="health-score-container">
+            <div class="radial-score-ring">
+              <svg viewBox="0 0 80 80">
+                <circle class="radial-score-bg" cx="40" cy="40" r="32"></circle>
+                <circle class="radial-score-val-circle" id="health-score-circle" cx="40" cy="40" r="32" stroke-dasharray="201" stroke-dashoffset="201" style="stroke:rgba(255,255,255,0.2);"></circle>
+              </svg>
+              <div class="radial-score-text" id="health-score-val">0%</div>
+            </div>
+            <div class="health-score-info">
+              <h3 id="health-status-heading">No Scan Performed</h3>
+              <p id="health-summary-desc">No scan data available yet. Please start a 360° scan or upload photos to run Gemini AI analysis.</p>
+            </div>
+          </div>
+
+          <!-- Leaves & Fruit Breakdown -->
+          <div style="margin-top:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <h4 style="font-size:13px; font-weight:700; color:#fff;" data-i18n="leaf-analysis-title">Leaves Condition</h4>
+              <span class="badge-tag tag-dimmed" id="leaf-status-tag">Awaiting Scan</span>
+            </div>
+            <ul class="mobile-findings-list" id="leaf-findings-list">
+              <li><i data-lucide="info" style="color:var(--text-muted);"></i> No leaf scan data available yet.</li>
+            </ul>
+          </div>
+
+          <div style="margin-top:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <h4 style="font-size:13px; font-weight:700; color:#fff;" data-i18n="fruit-analysis-title">Fruit Condition</h4>
+              <span class="badge-tag tag-dimmed" id="fruit-status-tag">Awaiting Scan</span>
+            </div>
+            <ul class="mobile-findings-list" id="fruit-findings-list">
+              <li><i data-lucide="info" style="color:var(--text-muted);"></i> No fruit scan data available yet.</li>
+            </ul>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- SCREEN: SCAN & DIAGNOSTIC HISTORY -->
+      <section id="screen-history" class="mobile-screen">
+        <div class="m3-card">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="history" style="color:var(--emerald-primary);"></i>
+              <span data-i18n="history-title">Diagnostic History</span>
+            </div>
+            <span class="badge-tag tag-healthy" id="history-count-badge">0 Reports</span>
+          </div>
+          <p style="font-size:11px; color:var(--text-muted); line-height:1.4;" data-i18n="history-subtitle">
+            Cloud-archived 360° foliar scans and Gemini AI reports.
+          </p>
+        </div>
+
+        <!-- History Reports List (Dynamically synced via Firestore) -->
+        <div id="history-reports-list" class="history-list-container">
+          <div class="history-empty-state">
+            <div class="history-empty-icon">
+              <i data-lucide="inbox"></i>
+            </div>
+            <h4 data-i18n="history-empty-title">No Saved Reports</h4>
+            <p data-i18n="history-empty-desc">Perform a scan or tap "Save Scan to Firestore Cloud" to view archived reports here.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2: ORGANIC AGRONOMY & PLANT CARE -->
+      <section id="screen-agronomy" class="mobile-screen">
+        
+        <div class="m3-card">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="sprout"></i>
+              <span data-i18n="organic-card-title">Organic Calamansi Care Guide</span>
+            </div>
+          </div>
+          <p style="font-size:11px; color:var(--text-muted); margin-bottom:12px;" data-i18n="organic-note">
+            💡 <strong>AI Note:</strong> Gemini AI detects nutrient needs visually! No commercial NPK fertilizer required.
+          </p>
+
+          <!-- Organic Dynamic Recipes Grid -->
+          <div id="organic-recipes-container">
+            <div class="recipe-card-item">
+              <div class="recipe-emoji-icon">☕</div>
+              <div class="recipe-body">
+                <h4 id="org-1-title">Pinagkapan ng Kape</h4>
+                <div class="recipe-sub" id="org-1-sub">Green Leaves & Growth</div>
+                <p id="org-1-desc">Mix 2 tbsp of dried coffee grounds into topsoil every 2 weeks for foliage health.</p>
+              </div>
+            </div>
+
+            <div class="recipe-card-item">
+              <div class="recipe-emoji-icon">🥚</div>
+              <div class="recipe-body">
+                <h4 id="org-2-title">Binudburang Balat ng Itlog</h4>
+                <div class="recipe-sub" id="org-2-sub" style="color:var(--citrus-gold);">Roots & Stem Strength</div>
+                <p id="org-2-desc">Boil and crush eggshells. Mix 2 tbsp powder with 1L water for calcium boost.</p>
+              </div>
+            </div>
+
+            <div class="recipe-card-item">
+              <div class="recipe-emoji-icon">🍌</div>
+              <div class="recipe-body">
+                <h4 id="org-3-title">Pinakuluang Balat ng Saging</h4>
+                <div class="recipe-sub" id="org-3-sub" style="color:var(--accent-blue);">Juicy Fruit & Potassium</div>
+                <p id="org-3-desc">Chop 3 banana peels and soak in 1L water for 3 days to boost juice and size.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weather & Irrigation Smart Logic -->
+        <div class="m3-card">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="cloud-rain"></i>
+              <span data-i18n="weather-logic-title">Weather & Irrigation Logic</span>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:var(--radius-xs);">
+              <h5 style="font-size:12px; color:var(--emerald-primary); margin-bottom:4px;" data-i18n="w-rain-title">Rainfall Advisory</h5>
+              <p id="rain-advisory-text" style="font-size:11px; color:var(--text-main);" data-i18n="w-rain-desc">Rain expected this afternoon (35% probability). Hold organic sprays for 48 hours.</p>
+            </div>
+            <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:var(--radius-xs);">
+              <h5 style="font-size:12px; color:var(--accent-blue); margin-bottom:4px;" data-i18n="w-irr-title">Irrigation Volume</h5>
+              <p id="irrigation-text" style="font-size:11px; color:var(--text-main);" data-i18n="w-irr-desc">Apply 5 Liters of drip irrigation per tree early morning.</p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- SCREEN 3: PRESETS & DEMO SCANS -->
+      <section id="screen-presets" class="mobile-screen">
+        
+        <div class="m3-card">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="sliders"></i>
+              <span data-i18n="btn-presets">Diagnostic Demo Presets</span>
+            </div>
+          </div>
+          <p style="font-size:11px; color:var(--text-muted); margin-bottom:12px;">
+            Tap a preset below to instantly load simulated 360° scan parameters & Gemini AI diagnostic predictions:
+          </p>
+
+          <div class="preset-chip-row">
+            <button class="preset-chip" data-preset="healthy" data-i18n="preset-healthy">Healthy Tree</button>
+            <button class="preset-chip" data-preset="canker" data-i18n="preset-canker">Citrus Canker</button>
+            <button class="preset-chip" data-preset="chlorosis" data-i18n="preset-chlorosis">Nutrient Deficiency</button>
+            <button class="preset-chip" data-preset="mixed" data-i18n="preset-mixed">Fruit Scab & Scale</button>
+          </div>
+
+          <button id="preset-analyze-trigger-btn" class="btn-m3 btn-m3-primary btn-block" style="margin-top:10px;">
+            <i data-lucide="sparkles"></i> <span data-i18n="btn-gemini-analyze">Run AI Diagnostic Analysis</span>
+          </button>
+        </div>
+
+      </section>
+
+      <!-- SCREEN 4: SYSTEM SETTINGS & PROFILE -->
+      <section id="screen-settings" class="mobile-screen">
+        
+        <div class="m3-card">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="settings"></i>
+              <span data-i18n="modal-title">System Settings</span>
+            </div>
+          </div>
+
+          <!-- Language Selector -->
+          <div class="form-group-m3">
+            <label><i data-lucide="globe"></i> Language / Wika:</label>
+            <div style="display:flex; gap:8px;">
+              <button id="lang-en-btn" class="btn-m3 btn-m3-secondary" style="flex:1;">🇬🇧 English</button>
+              <button id="lang-fil-btn" class="btn-m3 btn-m3-secondary" style="flex:1;">🇵🇭 Filipino</button>
+            </div>
+          </div>
+
+          <!-- RPi Edge Detector Device -->
+          <div class="form-group-m3" style="margin-top:12px;">
+            <label for="cfg-rpi-name"><i data-lucide="cpu"></i> Edge Node Device Name:</label>
+            <input type="text" id="cfg-rpi-name" value="RPi Detector 1" class="input-m3">
+          </div>
+
+          <!-- Plant Location -->
+          <div class="form-group-m3" style="margin-top:12px;">
+            <label for="cfg-location"><i data-lucide="map-pin"></i> Plant Location / City:</label>
+            <input type="text" id="cfg-location" value="Manila, Philippines" class="input-m3">
+          </div>
+
+          <button id="save-settings-btn" class="btn-m3 btn-m3-primary btn-block" style="margin-top:14px;" data-i18n="modal-save">
+            Save Settings
+          </button>
+        </div>
+
+        <!-- Automatic 360° Scanning Schedule Card (Firestore Synced) -->
+        <div class="m3-card m-auto-scan-card">
+          <div class="m-switch-row">
+            <div class="m3-card-title">
+              <i data-lucide="clock" style="color:var(--citrus-gold);"></i>
+              <span data-i18n="auto-scan-title">Automatic 360° Scanning</span>
+            </div>
+            <label class="switch-label">
+              <input type="checkbox" id="cfg-auto-scan-toggle" class="toggle-checkbox">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;" data-i18n="auto-scan-desc">
+            Autonomous scan trigger synchronized via Cloud Firestore.
+          </p>
+
+          <div id="auto-scan-options-container" style="display:none;">
+            <!-- Mode Switcher -->
+            <div class="m-mode-row">
+              <button type="button" class="m-mode-btn active" id="mode-time-btn" data-mode="time">
+                <i data-lucide="sun"></i> <span data-i18n="mode-daily-time">Daily Time</span>
+              </button>
+              <button type="button" class="m-mode-btn" id="mode-interval-btn" data-mode="interval">
+                <i data-lucide="repeat"></i> <span data-i18n="mode-interval">Interval</span>
+              </button>
+            </div>
+
+            <!-- Daily Time Input -->
+            <div id="sched-time-box" style="margin-top:10px;">
+              <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;" data-i18n="label-scan-time">Scan Execution Time:</label>
+              <input type="time" id="cfg-auto-scan-time" value="07:00" class="input-m3">
+            </div>
+
+            <!-- Interval Select -->
+            <div id="sched-interval-box" style="margin-top:10px; display:none;">
+              <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;" data-i18n="label-scan-interval">Repeat Every:</label>
+              <select id="cfg-auto-scan-interval" class="input-m3" style="background:rgba(30,41,59,0.8); color:#fff;">
+                <option value="2">Every 2 Hours</option>
+                <option value="4">Every 4 Hours</option>
+                <option value="6" selected>Every 6 Hours</option>
+                <option value="12">Every 12 Hours</option>
+                <option value="24">Every 24 Hours</option>
+              </select>
+            </div>
+
+            <!-- Auto Gemini AI Checkbox -->
+            <div style="margin-top:10px; display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="cfg-auto-ai-toggle" checked style="accent-color:var(--emerald-primary);">
+              <label for="cfg-auto-ai-toggle" style="font-size:11px; color:#e2e8f0; cursor:pointer;" data-i18n="label-auto-ai">Auto-Run Gemini AI Diagnosis</label>
+            </div>
+
+            <!-- Next Scan Preview -->
+            <div class="m-next-preview" id="next-scan-preview-box">
+              <i data-lucide="calendar"></i>
+              <span id="next-scan-preview-text">Next scan: Disabled</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Firestore & Cloud Sync -->
+        <div class="m3-card">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="cloud"></i>
+              <span>Cloud Account Sync</span>
+            </div>
+          </div>
+          <p style="font-size:11px; color:var(--text-muted); margin-bottom:12px;">
+            Logged in user: <strong id="user-display-email" style="color:#fff;">Loading...</strong>
+          </p>
+          <button id="save-firestore-btn" class="btn-m3 btn-m3-secondary btn-block" style="margin-bottom:8px;">
+            <i data-lucide="cloud-upload"></i> <span data-i18n="btn-save-cloud">Save Scan to Firestore Cloud</span>
+          </button>
+          <button id="logout-btn" class="btn-m3 btn-block" style="background:rgba(239,68,68,0.15); color:var(--accent-danger);">
+            <i data-lucide="log-out"></i> <span data-i18n="btn-logout">Logout</span>
+          </button>
+        </div>
+
+      </section>
+
+      <!-- SCREEN 5: SYSTEM FEATURES & USER MANUAL -->
+      <section id="screen-manual" class="mobile-screen">
+        
+        <!-- Manual Hero Banner -->
+        <div class="m-manual-hero">
+          <h3>
+            <i data-lucide="shield-check" style="color:var(--emerald-primary);"></i>
+            <span data-i18n="manual-hero-title">USISA System Manual</span>
+          </h3>
+          <p data-i18n="manual-hero-desc">
+            Autonomous 360° AI vision plant diagnostics and climate-smart organic care for Calamansi citrus cultivation.
+          </p>
+        </div>
+
+        <!-- Mobile Features List Card -->
+        <div class="m3-card">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="layers" style="color:var(--citrus-gold);"></i>
+              <span data-i18n="manual-feat-heading">System Features</span>
+            </div>
+            <span class="badge-tag tag-healthy" data-i18n="manual-badge-status">Active</span>
+          </div>
+
+          <div class="m-feature-card">
+            <div class="m-feature-header">
+              <div class="m-feature-icon emerald"><i data-lucide="rotate-cw"></i></div>
+              <h4 data-i18n="feat1-title">360° Cardinal Turret Scan</h4>
+            </div>
+            <p data-i18n="feat1-desc">Captures 4 standardized angles (0°, 90°, 180°, 270°) with auto return-to-home rewind.</p>
+          </div>
+
+          <div class="m-feature-card">
+            <div class="m-feature-header">
+              <div class="m-feature-icon gold"><i data-lucide="sparkles"></i></div>
+              <h4 data-i18n="feat2-title">Gemini Multimodal AI Vision</h4>
+            </div>
+            <p data-i18n="feat2-desc">Detects Citrus Canker, Fruit Scab, Melanose, Chlorosis, Scale Insects, and Leaf Miners.</p>
+          </div>
+
+          <div class="m-feature-card">
+            <div class="m-feature-header">
+              <div class="m-feature-icon teal"><i data-lucide="cloud-rain"></i></div>
+              <h4 data-i18n="feat3-title">Live Weather & Rain Advisories</h4>
+            </div>
+            <p data-i18n="feat3-desc">Real-time Open-Meteo forecasting with automatic spray delay warnings before rain.</p>
+          </div>
+
+          <div class="m-feature-card">
+            <div class="m-feature-header">
+              <div class="m-feature-icon emerald"><i data-lucide="sprout"></i></div>
+              <h4 data-i18n="feat4-title">100% Home DIY Organic Care</h4>
+            </div>
+            <p data-i18n="feat4-desc">Zero-cost recipes using spent coffee grounds, crushed eggshells, and banana peel tea.</p>
+          </div>
+
+          <div class="m-feature-card">
+            <div class="m-feature-header">
+              <div class="m-feature-icon gold"><i data-lucide="refresh-cw"></i></div>
+              <h4 data-i18n="feat6-title">Real-Time Cloud Auto-Sync</h4>
+            </div>
+            <p data-i18n="feat6-desc">Bi-directional Firestore synchronization connecting Mobile App, Web, and Edge Node.</p>
+          </div>
+        </div>
+
+        <!-- 6-Step Operating Guide Card -->
+        <div class="m3-card" style="margin-top:12px;">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="play-circle" style="color:var(--emerald-primary);"></i>
+              <span data-i18n="manual-steps-heading">Operating Guide</span>
+            </div>
+          </div>
+
+          <div class="m-step-item">
+            <div class="m-step-num">1</div>
+            <div class="m-step-content">
+              <h4 data-i18n="step1-title">Position Hardware & Power On</h4>
+              <p data-i18n="step1-desc">Position scanner facing the Calamansi tree canopy and turn on the power switch.</p>
+              <div class="m-step-tip"><strong data-i18n="tip-label">Tip:</strong> <span data-i18n="step1-tip">Wipe camera lens clean before scanning.</span></div>
+            </div>
+          </div>
+
+          <div class="m-step-item">
+            <div class="m-step-num">2</div>
+            <div class="m-step-content">
+              <h4 data-i18n="step2-title">Set Location & Sync Weather</h4>
+              <p data-i18n="step2-desc">Set municipality in Settings to sync live temperature and rainfall probabilities.</p>
+            </div>
+          </div>
+
+          <div class="m-step-item">
+            <div class="m-step-num">3</div>
+            <div class="m-step-content">
+              <h4 data-i18n="step3-title">Run 360° Automated Scan</h4>
+              <p data-i18n="step3-desc">Tap Quick 360° Scan or step through angles 0°, 90°, 180°, and 270°.</p>
+            </div>
+          </div>
+
+          <div class="m-step-item">
+            <div class="m-step-num">4</div>
+            <div class="m-step-content">
+              <h4 data-i18n="step4-title">Run Gemini AI Analysis</h4>
+              <p data-i18n="step4-desc">Tap Gemini AI button to evaluate plant pathology across all 4 angles.</p>
+            </div>
+          </div>
+
+          <div class="m-step-item">
+            <div class="m-step-num">5</div>
+            <div class="m-step-content">
+              <h4 data-i18n="step5-title">Review Agronomic Findings</h4>
+              <p data-i18n="step5-desc">Check Leaf & Fruit breakdown and prepare recommended DIY organic care recipes.</p>
+            </div>
+          </div>
+
+          <div class="m-step-item">
+            <div class="m-step-num">6</div>
+            <div class="m-step-content">
+              <h4 data-i18n="step6-title">Apply Irrigation & Monitor Live</h4>
+              <p data-i18n="step6-desc">Apply smart drip irrigation (5–8L/tree) and monitor live field updates on mobile.</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Quick FAQ / Troubleshooting Card -->
+        <div class="m3-card" style="margin-top:12px;">
+          <div class="m3-card-header">
+            <div class="m3-card-title">
+              <i data-lucide="help-circle" style="color:var(--citrus-gold);"></i>
+              <span data-i18n="manual-faq-heading">FAQ & Care</span>
+            </div>
+          </div>
+
+          <div class="m-faq-item">
+            <h4 data-i18n="faq1-q">Best time to scan?</h4>
+            <p data-i18n="faq1-a">Early morning (7:00 AM) or late afternoon (5:00 PM) for diffuse sunlight.</p>
+          </div>
+
+          <div class="m-faq-item">
+            <h4 data-i18n="faq2-q">What to do if rain is forecasted?</h4>
+            <p data-i18n="faq2-a">Hold foliar sprays for 48 hours to avoid wash-off loss.</p>
+          </div>
+
+          <div class="m-faq-item">
+            <h4 data-i18n="faq4-q">How to maintain the turret motor?</h4>
+            <p data-i18n="faq4-a">Never force by hand. System automatically rewinds after each scan.</p>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- USISA Brand Hub Menu Drawer Modal -->
+    <div class="brand-menu-overlay" id="brand-menu-overlay">
+      <div class="brand-menu-sheet" id="brand-menu-sheet">
+        <div class="brand-menu-header">
+          <div class="brand-menu-title-block">
+            <div class="brand-menu-logo">
+              <img src="./usisa-logo.png" alt="USISA Logo" class="app-logo-img">
+            </div>
+            <div>
+              <h3 data-i18n="brand-hub-title">USISA Navigation Hub</h3>
+              <span class="brand-menu-sub" data-i18n="brand-hub-sub">Quick Screen & Feature Access</span>
+            </div>
+          </div>
+          <button class="brand-menu-close-btn" id="brand-menu-close-btn" aria-label="Close Menu">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <div class="brand-menu-user-strip">
+          <div class="brand-menu-user-avatar" id="brand-menu-user-initials">US</div>
+          <div class="brand-menu-user-info">
+            <span class="brand-menu-user-email" id="brand-menu-user-email">farmer@usisa.ai</span>
+            <span class="brand-menu-user-role">🌿 Live Agri-Diagnostic Session</span>
+          </div>
+        </div>
+
+        <div class="brand-menu-items-grid">
+          <!-- Menu 1: 360 Scan -->
+          <button class="brand-menu-item active" data-screen="scan">
+            <div class="brand-menu-item-icon icon-emerald"><i data-lucide="aperture"></i></div>
+            <div class="brand-menu-item-text">
+              <div class="brand-menu-item-title" data-i18n="tab-scan">360° Vision Scan & Diagnosis</div>
+              <div class="brand-menu-item-desc" data-i18n="menu-desc-scan">Live 4-angle motorized camera & Gemini AI pathology</div>
+            </div>
+            <i data-lucide="chevron-right" class="brand-menu-arrow"></i>
+          </button>
+
+          <!-- Menu 2: History -->
+          <button class="brand-menu-item" data-screen="history">
+            <div class="brand-menu-item-icon icon-cyan"><i data-lucide="history"></i></div>
+            <div class="brand-menu-item-text">
+              <div class="brand-menu-item-title" data-i18n="tab-history">Scan History & Reports</div>
+              <div class="brand-menu-item-desc" data-i18n="menu-desc-history">Cloud-saved scans, timestamps, & delete records</div>
+            </div>
+            <i data-lucide="chevron-right" class="brand-menu-arrow"></i>
+          </button>
+
+          <!-- Menu 3: Agronomy -->
+          <button class="brand-menu-item" data-screen="agronomy">
+            <div class="brand-menu-item-icon icon-teal"><i data-lucide="sprout"></i></div>
+            <div class="brand-menu-item-text">
+              <div class="brand-menu-item-title" data-i18n="tab-agronomy">Organic Care & Weather</div>
+              <div class="brand-menu-item-desc" data-i18n="menu-desc-agronomy">Natural DIY fertilizers, spray delays & irrigation logic</div>
+            </div>
+            <i data-lucide="chevron-right" class="brand-menu-arrow"></i>
+          </button>
+
+          <!-- Menu 4: Manual -->
+          <button class="brand-menu-item" data-screen="manual">
+            <div class="brand-menu-item-icon icon-gold"><i data-lucide="book-open"></i></div>
+            <div class="brand-menu-item-text">
+              <div class="brand-menu-item-title" data-i18n="tab-manual">System Features & Manual</div>
+              <div class="brand-menu-item-desc" data-i18n="menu-desc-manual">How USISA works, hardware specs & operating guide</div>
+            </div>
+            <i data-lucide="chevron-right" class="brand-menu-arrow"></i>
+          </button>
+
+          <!-- Menu 5: Presets -->
+          <button class="brand-menu-item" data-screen="presets">
+            <div class="brand-menu-item-icon icon-blue"><i data-lucide="sliders"></i></div>
+            <div class="brand-menu-item-text">
+              <div class="brand-menu-item-title" data-i18n="btn-presets">Quick Scan Presets</div>
+              <div class="brand-menu-item-desc" data-i18n="menu-desc-presets">Healthy, Canker, Scab, Melanose, Chlorosis, & Scale</div>
+            </div>
+            <i data-lucide="chevron-right" class="brand-menu-arrow"></i>
+          </button>
+
+          <!-- Menu 6: Settings -->
+          <button class="brand-menu-item" data-screen="settings">
+            <div class="brand-menu-item-icon icon-purple"><i data-lucide="settings"></i></div>
+            <div class="brand-menu-item-text">
+              <div class="brand-menu-item-title" data-i18n="settings-btn">System & Schedule Settings</div>
+              <div class="brand-menu-item-desc" data-i18n="menu-desc-settings">Auto-scan times, interval triggers, and device sync</div>
+            </div>
+            <i data-lucide="chevron-right" class="brand-menu-arrow"></i>
+          </button>
+        </div>
+
+        <!-- Quick Actions Footer -->
+        <div class="brand-menu-footer">
+          <div class="brand-menu-lang-group">
+            <button class="brand-menu-lang-btn" id="brand-lang-en-btn">🇬🇧 EN</button>
+            <button class="brand-menu-lang-btn" id="brand-lang-fil-btn">🇵🇭 FIL</button>
+          </div>
+          <button class="brand-menu-logout-btn" id="brand-menu-logout-btn">
+            <i data-lucide="log-out"></i>
+            <span data-i18n="btn-logout">Logout</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal (Cloud Firestore) -->
+    <div class="modal-overlay" id="delete-confirm-modal" style="display:none;">
+      <div class="m3-card modal-card" style="max-width: 380px; text-align: center; border: 1px solid rgba(239, 68, 68, 0.4); box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 30px rgba(239, 68, 68, 0.15);">
+        <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 14px; color: #ef4444;">
+          <i data-lucide="trash-2" style="width: 26px; height: 26px;"></i>
+        </div>
+        <h3 id="delete-modal-title" style="font-size: 18px; font-weight: 800; margin-bottom: 6px; color: #fff;">Delete Scan Report?</h3>
+        <p id="delete-modal-desc" style="font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px;">
+          Are you sure you want to permanently delete this report from Cloud Firestore? This action cannot be undone.
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="cancel-delete-modal-btn" onclick="window.closeAndroidDeleteModal()" class="btn-m3 btn-m3-secondary" style="flex: 1; padding: 10px 14px; font-size: 13px; font-weight: 600;">
+            <i data-lucide="x"></i> <span>Cancel</span>
+          </button>
+          <button id="confirm-delete-modal-btn" onclick="window.executeAndroidDeleteReport()" class="btn-m3" style="flex: 1.2; padding: 10px 14px; font-size: 13px; font-weight: 700; background: #dc2626; border: 1px solid #ef4444; color: #fff;">
+            <i data-lucide="trash-2"></i> <span>Delete</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
