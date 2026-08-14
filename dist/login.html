@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>USISA Mobile AI — Android Login</title>
+  <meta name="description" content="USISA Android Mobile Authentication Portal.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="./usisa-logo.png">
+  <style>
+    body {
+      background: radial-gradient(circle at 50% 15%, rgba(16, 185, 129, 0.18), transparent 60%), #090e1a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+    }
+    .login-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      justify-content: space-between;
+      padding: 16px;
+      overflow-y: auto;
+    }
+    .lang-pill-group {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .lang-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lang-pill.active {
+      background: var(--emerald-primary);
+      color: #052e16;
+      font-weight: 700;
+      border-color: var(--emerald-primary);
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/login-DoOsm57F.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/firebase-CSMYimrj.js">
+  <link rel="stylesheet" crossorigin href="./assets/firebase-CnXDe0cp.css">
+</head>
+<body>
+  <canvas id="bg-3d-canvas" class="bg-3d-canvas"></canvas>
+
+  <div class="mobile-app-shell">
+    
+    <!-- Android Simulated Status Bar -->
+    <div class="android-status-bar">
+      <span class="status-bar-time" id="status-clock">09:41 AM</span>
+      <div class="status-bar-icons">
+        <i data-lucide="wifi"></i>
+        <i data-lucide="signal"></i>
+        <i data-lucide="battery-charging"></i>
+      </div>
+    </div>
+
+    <!-- Android App Bar -->
+    <header class="android-app-bar" style="border-bottom:none;">
+      <div class="app-brand" style="margin: 0 auto; text-align: center;">
+        <div class="app-logo-badge" style="margin:0 auto 4px auto; width:52px; height:52px; border-radius:14px;">
+          <img src="./usisa-logo.png" alt="USISA Logo" class="app-logo-img">
+        </div>
+      </div>
+    </header>
+
+    <div class="login-container">
+      <div>
+        <!-- Language Switcher Pill -->
+        <div class="lang-pill-group">
+          <button class="lang-pill active" id="btn-lang-en">🇬🇧 English</button>
+          <button class="lang-pill" id="btn-lang-fil">🇵🇭 Filipino</button>
+        </div>
+
+        <div style="text-align:center; margin-bottom:20px;">
+          <h2 style="font-family:var(--font-heading); font-size:22px; font-weight:800; color:#fff; margin-bottom:4px;" id="lbl-title">
+            USISA Mobile AI
+          </h2>
+          <p style="font-size:12px; color:var(--text-muted);" id="lbl-subtitle">
+            360° Citrus Health & Agronomy Portal
+          </p>
+        </div>
+
+        <div id="auth-alert" style="display:none; padding:12px; border-radius:12px; font-size:12px; margin-bottom:16px; text-align:center; line-height:1.4;"></div>
+
+        <!-- LOGIN FORM -->
+        <form id="auth-form-login">
+          <div class="form-group-m3">
+            <label for="login-email" id="lbl-email"><i data-lucide="mail"></i> Farmer Email Address</label>
+            <input type="email" id="login-email" required placeholder="farmer@example.com" class="input-m3" value="farmer@usisa.com">
+          </div>
+
+          <div class="form-group-m3" style="margin-top:12px;">
+            <label for="login-password" id="lbl-pass"><i data-lucide="lock"></i> Password</label>
+            <input type="password" id="login-password" required placeholder="••••••••" class="input-m3" value="password123">
+          </div>
+
+          <button type="submit" id="btn-submit-login" class="btn-m3 btn-m3-primary btn-block" style="margin-top:18px; padding:14px; font-size:14px;">
+            <i data-lucide="log-in"></i> <span id="lbl-btn-signin">Sign In to Account</span>
+          </button>
+
+          <div style="text-align:center; margin-top:16px; font-size:12px;">
+            <span id="lbl-no-account" style="color:var(--text-muted);">Don't have an account?</span>
+            <a href="#" id="link-to-register" style="color:var(--emerald-primary); font-weight:600; text-decoration:none; margin-left:4px;">
+              <span id="lbl-register-link">Create Account</span>
+            </a>
+          </div>
+        </form>
+
+        <!-- REGISTER FORM -->
+        <form id="auth-form-register" style="display:none;">
+          <div class="form-group-m3">
+            <label for="reg-fullname" id="lbl-reg-name">Full Name / Pangalan</label>
+            <input type="text" id="reg-fullname" required placeholder="Juan Dela Cruz" class="input-m3">
+          </div>
+
+          <div class="form-group-m3" style="margin-top:12px;">
+            <label for="reg-email" id="lbl-reg-email">Farmer Email Address</label>
+            <input type="email" id="reg-email" required placeholder="newfarmer@example.com" class="input-m3">
+          </div>
+
+          <div class="form-group-m3" style="margin-top:12px;">
+            <label for="reg-password" id="lbl-reg-pass">Password (Min 6 characters)</label>
+            <input type="password" id="reg-password" required placeholder="••••••••" class="input-m3">
+          </div>
+
+          <button type="submit" id="btn-submit-register" class="btn-m3 btn-m3-primary btn-block" style="margin-top:18px; padding:14px; font-size:14px;">
+            <i data-lucide="user-plus"></i> <span id="lbl-btn-create">Create Farmer Account</span>
+          </button>
+
+          <div style="text-align:center; margin-top:16px; font-size:12px;">
+            <span id="lbl-have-account" style="color:var(--text-muted);">Already registered?</span>
+            <a href="#" id="link-to-login" style="color:var(--emerald-primary); font-weight:600; text-decoration:none; margin-left:4px;">
+              <span id="lbl-login-link">Sign In</span>
+            </a>
+          </div>
+        </form>
+      </div>
+
+      <div style="text-align:center; padding:12px 0; font-size:11px; color:rgba(255,255,255,0.3);">
+        USISA Android Native Mobile App &bull; Powered by Gemini AI
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
