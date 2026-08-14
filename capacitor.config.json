@@ -1,0 +1,13 @@
+{
+  "appId": "com.usisa.citrusapp",
+  "appName": "USISA Citrus AI",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

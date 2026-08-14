@@ -1,0 +1,7 @@
+{
+  "name": "USISA Citrus AI",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "custom"
+}
