@@ -1147,7 +1147,7 @@ async function runGeminiAnalysis() {
     return;
   }
 
-  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6J0UtbmquunnvMmi9ZbrauUrZgSHG1DOpWrnU-TA6eCyA').trim();
+  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6J7c5_xKhia3nbt3PUQv2976TC_Kx9-e6PVwPwfUAUtPA').trim();
 
   try {
     const promptText = `You are an expert precision plant pathologist and computer vision agronomist specializing strictly in Philippine Calamansi (Citrus microcarpa / Citrofortunella microcarpa) citrus trees, foliar canopies, citrus fruits, and orchard soil.
@@ -1233,19 +1233,18 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
       'gemini-3.5-flash',
       'gemini-flash-lite-latest',
       'gemini-3.7-flash',
-      'gemini-pro-latest',
-      'gemini-2.5-flash-lite'
+      'gemini-pro-latest'
     ];
 
     // 1. Try Direct Google Generative Language API
     for (const model of candidateModels) {
+      // First try standard header endpoint
       try {
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-        const response = await fetch(apiUrl, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'x-goog-api-key': GEMINI_API_KEY
+            'X-goog-api-key': GEMINI_API_KEY
           },
           body: JSON.stringify({
             contents: [{ parts }],
@@ -1263,8 +1262,38 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
             break;
           }
         }
-      } catch (directErr) {
-        // Continue to next candidate model
+      } catch (err1) {
+        // try next
+      }
+
+      // If header alone was not successful, try URL query parameter format
+      if (!rawText) {
+        try {
+          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              contents: [{ parts }],
+              generationConfig: {
+                responseMimeType: 'application/json'
+              }
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+              rawText = data.candidates[0].content.parts[0].text;
+              console.log(`[Gemini AI Android] Successfully analyzed with model (url key): ${model}`);
+              break;
+            }
+          }
+        } catch (err2) {
+          // Continue to next candidate model
+        }
       }
     }
 
