@@ -181,10 +181,11 @@ document.addEventListener('DOMContentLoaded', () => {
         await signInWithEmailAndPassword(auth, email, pass);
         window.location.replace('/index.html');
       } catch (err) {
+        console.warn('[Android Auth Notice]', err);
         submitBtn.disabled = false;
         submitBtn.innerHTML = `<i data-lucide="log-in"></i> ${t.btnSignin}`;
         renderIcons();
-        showAlert(err.message || 'Login failed. Please check your credentials.', true);
+        showAlert(formatAuthErrorMessage(err, currentLang), true);
       }
     });
   }
@@ -209,14 +210,88 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         window.location.replace('/index.html');
       } catch (err) {
+        console.warn('[Android Auth Register Notice]', err);
         submitBtn.disabled = false;
         submitBtn.innerHTML = `<i data-lucide="user-plus"></i> ${t.btnCreate}`;
         renderIcons();
-        showAlert(err.message || 'Registration failed.', true);
+        showAlert(formatAuthErrorMessage(err, currentLang), true);
       }
     });
   }
 });
+
+function formatAuthErrorMessage(err, lang = 'en') {
+  if (!err) return '';
+  const code = (err.code || '').toLowerCase();
+  const rawMsg = (err.message || '').toLowerCase();
+  const isFil = lang === 'fil';
+
+  if (
+    code.includes('invalid-credential') ||
+    code.includes('wrong-password') ||
+    code.includes('user-not-found') ||
+    rawMsg.includes('invalid-credential') ||
+    rawMsg.includes('wrong-password') ||
+    rawMsg.includes('user-not-found') ||
+    rawMsg.includes('invalid credential')
+  ) {
+    return isFil 
+      ? 'Maling email o password. Pakisuri at subukang muli.' 
+      : 'Incorrect email or password. Please check your credentials and try again.';
+  }
+
+  if (code.includes('invalid-email') || rawMsg.includes('invalid-email') || rawMsg.includes('invalid email')) {
+    return isFil 
+      ? 'Hindi wastong format ng email address.' 
+      : 'Invalid email address format. Please enter a valid email.';
+  }
+
+  if (code.includes('email-already-in-use') || rawMsg.includes('email-already-in-use') || rawMsg.includes('email already in use')) {
+    return isFil 
+      ? 'Narehistro na ang email na ito. Pakipili ang Mag-Sign In.' 
+      : 'This email is already registered. Please sign in instead.';
+  }
+
+  if (code.includes('weak-password') || rawMsg.includes('weak-password') || rawMsg.includes('weak password')) {
+    return isFil 
+      ? 'Masyadong mahina ang password. Dapat ay mayroong hindi bababa sa 6 na karakter.' 
+      : 'Password is too weak. Must be at least 6 characters long.';
+  }
+
+  if (code.includes('too-many-requests') || rawMsg.includes('too-many-requests') || rawMsg.includes('too many requests')) {
+    return isFil 
+      ? 'Masyadong maraming maling pagsubok. Pakihintay at subukang muli mamaya.' 
+      : 'Too many unsuccessful attempts. Access temporarily restricted. Please try again later.';
+  }
+
+  if (code.includes('network-request-failed') || rawMsg.includes('network-request-failed') || rawMsg.includes('network')) {
+    return isFil 
+      ? 'Problema sa koneksyon sa internet. Pakisuri ang iyong wifi o data connection.' 
+      : 'Network connection failed. Please check your internet connection and try again.';
+  }
+
+  if (code.includes('user-disabled') || rawMsg.includes('user-disabled')) {
+    return isFil 
+      ? 'Na-disable ang account na ito. Makipag-ugnayan sa administrator.' 
+      : 'This user account has been disabled. Please contact the administrator.';
+  }
+
+  if (code.includes('missing-password') || rawMsg.includes('missing-password')) {
+    return isFil 
+      ? 'Pakilagay ang iyong password.' 
+      : 'Please enter your account password.';
+  }
+
+  if (code.includes('missing-email') || rawMsg.includes('missing-email')) {
+    return isFil 
+      ? 'Pakilagay ang iyong email address.' 
+      : 'Please enter your email address.';
+  }
+
+  return isFil 
+    ? 'Hindi makapag-login. Pakisuri ang iyong email at password.' 
+    : 'Unable to sign in. Please verify your email and password.';
+}
 
 function initClock() {
   const clockEl = document.getElementById('status-clock');
