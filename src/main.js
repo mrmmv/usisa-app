@@ -1112,7 +1112,7 @@ async function runGeminiAnalysis() {
     return;
   }
 
-  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6Jc1DQzSbnsnGYjCwWz4nRtFEWobioq952xspXV_BeMqg').trim();
+  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6IG2Wtdn7md0POEmYmHH3jpDbdrXmbS5m3_Fvx4EEmayQ').trim();
 
   try {
     const promptText = `You are an expert precision plant pathologist and computer vision agronomist specializing strictly in Philippine Calamansi (Citrus microcarpa / Citrofortunella microcarpa) citrus trees, foliar canopies, citrus fruits, and orchard soil.
@@ -1194,12 +1194,12 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
 
     // Supported Google Gemini Flash vision models in priority order
     const candidateModels = [
-      'gemini-2.5-flash',
       'gemini-flash-latest',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
       'gemini-3.5-flash',
-      'gemini-3.5-flash-lite'
+      'gemini-flash-lite-latest',
+      'gemini-3.7-flash',
+      'gemini-pro-latest',
+      'gemini-2.5-flash-lite'
     ];
 
     // 1. Try Direct Google Generative Language API
@@ -1319,24 +1319,24 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
       } else {
         state.analysis.isCalamansi = false;
         state.analysis.healthScore = 0;
-        state.analysis.statusText = { en: 'Invalid Target (Not Calamansi / Soil)', fil: 'Hindi Calamansi o Lupa (Maling Kuha)' };
-        state.analysis.summaryText = { en: 'The captured frames do not contain a Calamansi citrus tree or orchard soil. Disease diagnostics aborted to prevent false readings.', fil: 'Hindi kinilala ang larawan bilang dahon o lupa ng Calamansi. Itinigil ang pagsusuri upang maiwasan ang maling ulat.' };
-        state.analysis.leafStatus = { en: 'Unrecognized Target', fil: 'Hindi Calamansi' };
-        state.analysis.leafTagClass = 'tag-danger';
+        state.analysis.statusText = { en: 'AI Connection Error (Check API Key)', fil: 'Hindi Makakonekta sa AI (Suriin ang API Key)' };
+        state.analysis.summaryText = { en: 'Could not connect to Google Gemini Vision AI. Please verify your Gemini API key (must start with AIzaSy...) and internet connection.', fil: 'Hindi makakonekta sa Google Gemini AI. Pakisuri ang iyong Gemini API key (dapat nagsisimula sa AIzaSy...) at koneksyon sa internet.' };
+        state.analysis.leafStatus = { en: 'Connection Failed', fil: 'Walang Koneksyon' };
+        state.analysis.leafTagClass = 'tag-warning';
         state.analysis.leafFindings = {
-          en: ['Target in frame is not identified as Calamansi foliage.', 'Please point camera at a Calamansi tree.'],
-          fil: ['Ang bagay sa larawan ay hindi dahon ng Calamansi.', 'Itutok ang camera sa puno ng Calamansi.']
+          en: ['Could not reach Google Gemini Generative AI endpoints.', 'Verify that your Gemini API key is valid and starts with AIzaSy...'],
+          fil: ['Hindi maabot ang Google Gemini AI.', 'Tiyaking tama ang API key (dapat nagsisimula sa AIzaSy...).']
         };
-        state.analysis.fruitStatus = { en: 'No Fruit Detected', fil: 'Walang Calamansi' };
-        state.analysis.fruitTagClass = 'tag-danger';
+        state.analysis.fruitStatus = { en: 'Awaiting AI', fil: 'Naghihintay' };
+        state.analysis.fruitTagClass = 'tag-warning';
         state.analysis.fruitFindings = {
-          en: ['No Calamansi citrus fruit detected.'],
-          fil: ['Walang nakitang bunga ng Calamansi.']
+          en: ['No AI diagnostic response received.'],
+          fil: ['Walang natanggap na sagot mula sa AI.']
         };
         state.analysis.treatment = {
-          type: 'bad',
-          title: { en: 'Aim at Calamansi Tree', fil: 'Itutok sa Calamansi' },
-          desc: { en: 'Point optical sensor at a Calamansi tree to receive health diagnostics.', fil: 'Itutok ang scanner sa totoong puno ng Calamansi.' }
+          type: 'warn',
+          title: { en: 'Check Gemini API Key', fil: 'Suriin ang Gemini API Key' },
+          desc: { en: 'Get a free API key at https://aistudio.google.com/app/apikey (starts with AIzaSy...) and put it in your .env as VITE_GEMINI_API_KEY.', fil: 'Kumuha ng libreng API key sa https://aistudio.google.com/app/apikey (nagsisimula sa AIzaSy...) at ilagay sa .env bilang VITE_GEMINI_API_KEY.' }
         };
         state.analysis.organicRecs = [];
       }
@@ -1352,20 +1352,20 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
     } else {
       state.analysis.isCalamansi = false;
       state.analysis.healthScore = 0;
-      state.analysis.statusText = { en: 'Invalid Target / Target Not Found', fil: 'Hindi Calamansi o Lupa (Maling Kuha)' };
-      state.analysis.summaryText = { en: 'Could not detect genuine Calamansi tree foliage or citrus orchard soil. Ensure the camera is aimed at a Calamansi tree.', fil: 'Hindi nakakita ng dahon o lupa ng Calamansi. Siguraduhing nakatutok ang camera sa puno ng Calamansi.' };
-      state.analysis.leafStatus = { en: 'Scan Target Error', fil: 'Maling Kuha' };
-      state.analysis.leafTagClass = 'tag-danger';
+      state.analysis.statusText = { en: 'AI Service Error', fil: 'Error sa Koneksyon ng AI' };
+      state.analysis.summaryText = { en: 'An error occurred while connecting to Gemini AI. Check your internet connection and API key.', fil: 'Nagkaroon ng problema sa pagkonekta sa Gemini AI. Pakisuri ang internet at API key.' };
+      state.analysis.leafStatus = { en: 'Service Error', fil: 'May Problema' };
+      state.analysis.leafTagClass = 'tag-warning';
       state.analysis.leafFindings = {
-        en: ['Frame does not match Citrus microcarpa foliage.'],
-        fil: ['Hindi kinikilala ang dahon ng Calamansi sa larawan.']
+        en: ['Error communicating with AI service.'],
+        fil: ['Nagka-error sa pakikipag-ugnayan sa AI.']
       };
-      state.analysis.fruitStatus = { en: 'No Fruit Detected', fil: 'Walang Calamansi' };
-      state.analysis.fruitTagClass = 'tag-danger';
+      state.analysis.fruitStatus = { en: 'Service Error', fil: 'May Problema' };
+      state.analysis.fruitTagClass = 'tag-warning';
       state.analysis.treatment = {
-        type: 'bad',
-        title: { en: 'Aim at Calamansi Tree', fil: 'Itutok sa Calamansi' },
-        desc: { en: 'Please point camera at a live Calamansi citrus tree.', fil: 'Itutok ang camera sa totoong puno ng Calamansi.' }
+        type: 'warn',
+        title: { en: 'Retry Gemini Analysis', fil: 'Subukang Muli ang AI' },
+        desc: { en: 'Check your network connection and click Analyze with Gemini AI to retry.', fil: 'Suriin ang koneksyon at i-click muli ang Suriin Gamit ang Gemini AI.' }
       };
       state.analysis.organicRecs = [];
     }
