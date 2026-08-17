@@ -61,6 +61,8 @@ import {
   deleteDoc,
   query,
   orderBy,
+  limit,
+  getDocs,
   onSnapshot,
   serverTimestamp 
 } from './firebase.js';
@@ -1147,7 +1149,7 @@ async function runGeminiAnalysis() {
     return;
   }
 
-  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6J7c5_xKhia3nbt3PUQv2976TC_Kx9-e6PVwPwfUAUtPA').trim();
+  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6L_aQaYp5ZS3r7bmq-KLCXQJufPXSzOqmIoCgZkca8nuQ').trim();
 
   try {
     const promptText = `You are an expert precision plant pathologist and computer vision agronomist specializing strictly in Philippine Calamansi (Citrus microcarpa / Citrofortunella microcarpa) citrus trees, foliar canopies, citrus fruits, and orchard soil.
@@ -1464,7 +1466,8 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
         lastSavedReportTimestamp = now;
 
         const p = PRESETS[state.activePreset];
-        await addDoc(collection(db, 'scans'), {
+        const scanDocId = generateScanDocId(state.quadrants, now);
+        await setDoc(doc(db, 'scans', scanDocId), {
           userEmail: state.currentUser ? state.currentUser.email : 'farmer@usisa.ai',
           rpiName: state.rpiName || 'RPi Detector 1',
           location: state.location || 'Mindoro, Philippines',
@@ -1474,22 +1477,45 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
           statusText: state.analysis.statusText || (p?.statusText || 'Healthy'),
           summaryText: state.analysis.summaryText || (p?.summary || ''),
           leafStatus: state.analysis.leafStatus || 'Optimal',
+          leafTagClass: state.analysis.leafTagClass || 'tag-healthy',
           leafFindings: state.analysis.leafFindings || [],
           fruitStatus: state.analysis.fruitStatus || 'Optimal',
+          fruitTagClass: state.analysis.fruitTagClass || 'tag-healthy',
           fruitFindings: state.analysis.fruitFindings || [],
+          treatment: state.analysis.treatment || null,
+          organicRecs: state.analysis.organicRecs || [],
           autoScanTime: state.autoScanTime || '07:00',
           autoScanEnabled: state.autoScanEnabled,
           autoScanMode: state.autoScanMode || 'time',
           autoScanIntervalHours: state.autoScanIntervalHours || 6,
           quadrants: state.quadrants.map(q => ({ angle: q.angle, img: q.img })),
           timestamp: serverTimestamp()
-        });
-        console.log('[Gemini AI Android] Archived diagnostic scan to Firestore scans collection.');
+        }, { merge: true });
+        console.log('[Gemini AI Android] Archived unique diagnostic scan to Firestore scans collection:', scanDocId);
       }
     } catch (archiveErr) {
       console.warn('[Gemini AI Android] Firestore history archive notice:', archiveErr);
     }
   }
+}
+
+function generateScanDocId(quadrants, timestampMs = Date.now()) {
+  let str = '';
+  if (Array.isArray(quadrants)) {
+    quadrants.forEach(q => {
+      if (q && q.img) {
+        str += q.img.slice(20, 80);
+      }
+    });
+  }
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const positiveHash = Math.abs(hash).toString(36);
+  const bucket = Math.floor(timestampMs / (90 * 1000));
+  return `scan_${bucket}_${positiveHash}`;
 }
 
 // Geocoding helper using Open-Meteo Geocoding API
@@ -1749,198 +1775,280 @@ async function syncToFirestore(source = 'android') {
   }
 }
 
+function applyScanDataToState(data, saveToCache = true) {
+  if (!data) return;
+
+  if (data.location && data.location !== state.location) {
+    state.location = data.location;
+    localStorage.setItem('calamansi_location', data.location);
+    const locEl = document.getElementById('cfg-location');
+    if (locEl) locEl.value = data.location;
+    fetchLiveWeather('remote_sync');
+  }
+
+  if (data.weather) {
+    state.weather = data.weather;
+    updateDynamicWeatherAdvisories();
+    renderWeatherUI();
+  }
+
+  if (data.autoScanEnabled !== undefined) {
+    state.autoScanEnabled = data.autoScanEnabled;
+    localStorage.setItem('calamansi_auto_scan_enabled', data.autoScanEnabled);
+    const toggle = document.getElementById('cfg-auto-scan-toggle');
+    if (toggle) toggle.checked = data.autoScanEnabled;
+    const container = document.getElementById('auto-scan-options-container');
+    if (container) container.style.display = data.autoScanEnabled ? 'block' : 'none';
+  }
+  if (data.autoScanMode) {
+    state.autoScanMode = data.autoScanMode;
+    localStorage.setItem('calamansi_auto_scan_mode', data.autoScanMode);
+    const timeBtn = document.getElementById('mode-time-btn');
+    const intBtn = document.getElementById('mode-interval-btn');
+    const timeBox = document.getElementById('sched-time-box');
+    const intBox = document.getElementById('sched-interval-box');
+    if (timeBtn && intBtn && timeBox && intBox) {
+      timeBtn.classList.toggle('active', data.autoScanMode === 'time');
+      intBtn.classList.toggle('active', data.autoScanMode === 'interval');
+      timeBox.style.display = data.autoScanMode === 'time' ? 'block' : 'none';
+      intBox.style.display = data.autoScanMode === 'interval' ? 'block' : 'none';
+    }
+  }
+  if (data.autoScanTime) {
+    state.autoScanTime = data.autoScanTime;
+    localStorage.setItem('calamansi_auto_scan_time', data.autoScanTime);
+    const timeInput = document.getElementById('cfg-auto-scan-time');
+    if (timeInput) timeInput.value = data.autoScanTime;
+  }
+  if (data.autoScanIntervalHours) {
+    state.autoScanIntervalHours = data.autoScanIntervalHours;
+    localStorage.setItem('calamansi_auto_scan_interval', data.autoScanIntervalHours);
+    const intSelect = document.getElementById('cfg-auto-scan-interval');
+    if (intSelect) intSelect.value = String(data.autoScanIntervalHours);
+  }
+  if (data.autoAnalyzeEnabled !== undefined) {
+    state.autoAnalyzeEnabled = data.autoAnalyzeEnabled;
+    localStorage.setItem('calamansi_auto_analyze_enabled', data.autoAnalyzeEnabled);
+    const aiToggle = document.getElementById('cfg-auto-ai-toggle');
+    if (aiToggle) aiToggle.checked = data.autoAnalyzeEnabled;
+  }
+  if (data.lastAutoScanIso) {
+    state.lastAutoScanIso = data.lastAutoScanIso;
+    localStorage.setItem('calamansi_last_auto_scan_iso', data.lastAutoScanIso);
+  }
+  updateAutoScanUI();
+
+  if (data.activePreset && PRESETS[data.activePreset]) {
+    state.activePreset = data.activePreset;
+    document.querySelectorAll('.preset-chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.preset === data.activePreset);
+    });
+  }
+
+  if (data.activeAngleIndex !== undefined) {
+    state.activeAngleIndex = data.activeAngleIndex;
+    const angle = [0, 90, 180, 270][state.activeAngleIndex] || 0;
+    if (threeTurntableRig) threeTurntableRig.setAngleDegrees(angle);
+    document.querySelectorAll('.angle-pill-btn').forEach((b, i) => b.classList.toggle('active', i === state.activeAngleIndex));
+    document.querySelectorAll('.quadrant-mobile-box').forEach((b, i) => b.classList.toggle('active', i === state.activeAngleIndex));
+    const badge = document.getElementById('motor-status-badge');
+    if (badge) badge.textContent = `Position: ${angle}°`;
+  }
+
+  if (data.quadrants && Array.isArray(data.quadrants)) {
+    [0, 90, 180, 270].forEach((ang, idx) => {
+      const q = data.quadrants[idx];
+      if (q && q.img) {
+        state.quadrants[idx].img = q.img;
+        const imgEl = document.getElementById(`img-${ang}`);
+        const placeholder = document.getElementById(`placeholder-${ang}`);
+        if (imgEl) {
+          imgEl.src = q.img;
+          imgEl.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+      }
+    });
+  }
+
+  if (data.healthScore !== undefined && data.healthScore !== null) {
+    state.analysis.healthScore = data.healthScore;
+    const scoreVal = document.getElementById('health-score-val');
+    if (scoreVal) scoreVal.textContent = `${data.healthScore}%`;
+    const circle = document.getElementById('health-score-circle');
+    const scoreContainer = document.getElementById('health-score-container');
+    if (circle) {
+      if (data.healthScore === 0) {
+        circle.style.strokeDashoffset = 201;
+        circle.style.stroke = 'rgba(255, 255, 255, 0.2)';
+        if (scoreContainer) scoreContainer.className = 'health-score-container no-scan';
+      } else {
+        const offset = 201 - (201 * data.healthScore) / 100;
+        circle.style.strokeDashoffset = offset;
+        circle.style.stroke = data.healthScore >= 80 ? '#10b981' : (data.healthScore >= 55 ? '#f59e0b' : '#ef4444');
+        if (scoreContainer) scoreContainer.className = 'health-score-container';
+      }
+    }
+  }
+
+  if (data.statusText) {
+    state.analysis.statusText = data.statusText;
+    const statusEl = document.getElementById('health-status-heading');
+    if (statusEl) {
+      statusEl.textContent = typeof data.statusText === 'object' ? (data.statusText[state.lang] || data.statusText.en) : data.statusText;
+    }
+  }
+  if (data.summaryText) {
+    state.analysis.summaryText = data.summaryText;
+    const sumEl = document.getElementById('health-summary-desc');
+    if (sumEl) {
+      sumEl.textContent = typeof data.summaryText === 'object' ? (data.summaryText[state.lang] || data.summaryText.en) : data.summaryText;
+    }
+  }
+
+  if (data.leafStatus) {
+    state.analysis.leafStatus = data.leafStatus;
+    const leafTag = document.getElementById('leaf-status-tag');
+    if (leafTag) {
+      leafTag.textContent = typeof data.leafStatus === 'object' ? (data.leafStatus[state.lang] || data.leafStatus.en) : data.leafStatus;
+      leafTag.className = `badge-tag ${data.leafTagClass || (data.healthScore === 0 ? 'tag-dimmed' : 'tag-healthy')}`;
+    }
+  }
+
+  if (data.leafFindings) {
+    state.analysis.leafFindings = data.leafFindings;
+    const leafList = document.getElementById('leaf-findings-list');
+    const leafArr = typeof data.leafFindings === 'object' && !Array.isArray(data.leafFindings) 
+      ? (data.leafFindings[state.lang] || data.leafFindings.en || [])
+      : (Array.isArray(data.leafFindings) ? data.leafFindings : []);
+    if (leafList && leafArr.length > 0) {
+      const iconName = data.healthScore === 0 ? 'info' : 'check-circle';
+      const iconStyle = data.healthScore === 0 ? 'style="color:var(--text-muted);"' : '';
+      leafList.innerHTML = leafArr.map(f => `<li><i data-lucide="${iconName}" ${iconStyle}></i> ${f}</li>`).join('');
+    }
+  }
+
+  if (data.fruitStatus) {
+    state.analysis.fruitStatus = data.fruitStatus;
+    const fruitTag = document.getElementById('fruit-status-tag');
+    if (fruitTag) {
+      fruitTag.textContent = typeof data.fruitStatus === 'object' ? (data.fruitStatus[state.lang] || data.fruitStatus.en) : data.fruitStatus;
+      fruitTag.className = `badge-tag ${data.fruitTagClass || (data.healthScore === 0 ? 'tag-dimmed' : 'tag-healthy')}`;
+    }
+  }
+
+  if (data.fruitFindings) {
+    state.analysis.fruitFindings = data.fruitFindings;
+    const fruitList = document.getElementById('fruit-findings-list');
+    const fruitArr = typeof data.fruitFindings === 'object' && !Array.isArray(data.fruitFindings) 
+      ? (data.fruitFindings[state.lang] || data.fruitFindings.en || [])
+      : (Array.isArray(data.fruitFindings) ? data.fruitFindings : []);
+    if (fruitList && fruitArr.length > 0) {
+      const iconName = data.healthScore === 0 ? 'info' : 'check-circle';
+      const iconStyle = data.healthScore === 0 ? 'style="color:var(--text-muted);"' : '';
+      fruitList.innerHTML = fruitArr.map(f => `<li><i data-lucide="${iconName}" ${iconStyle}></i> ${f}</li>`).join('');
+    }
+  }
+
+  if (data.treatment) {
+    state.analysis.treatment = data.treatment;
+  }
+
+  if (data.organicRecs && Array.isArray(data.organicRecs) && data.organicRecs.length > 0) {
+    state.analysis.organicRecs = data.organicRecs;
+    const recContainer = document.getElementById('organic-recipes-container');
+    if (recContainer) {
+      recContainer.innerHTML = data.organicRecs.map(r => `
+        <div class="recipe-card-item">
+          <div class="recipe-emoji-icon">${r.icon || '🌱'}</div>
+          <div class="recipe-body">
+            <h4>${typeof r.title === 'object' ? (r.title[state.lang] || r.title.en) : r.title}</h4>
+            <div class="recipe-sub">${typeof r.sub === 'object' ? (r.sub[state.lang] || r.sub.en) : r.sub}</div>
+            <p>${typeof r.desc === 'object' ? (r.desc[state.lang] || r.desc.en) : r.desc}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  if (saveToCache && (data.healthScore > 0 || (data.quadrants && data.quadrants.some(q => q && q.img)))) {
+    try {
+      localStorage.setItem('usisa_cached_latest_scan', JSON.stringify({
+        healthScore: data.healthScore,
+        statusText: data.statusText,
+        summaryText: data.summaryText,
+        leafStatus: data.leafStatus,
+        leafTagClass: data.leafTagClass,
+        leafFindings: data.leafFindings,
+        fruitStatus: data.fruitStatus,
+        fruitTagClass: data.fruitTagClass,
+        fruitFindings: data.fruitFindings,
+        treatment: data.treatment,
+        organicRecs: data.organicRecs,
+        activePreset: data.activePreset,
+        quadrants: data.quadrants
+      }));
+    } catch(e) {
+      console.warn('Local storage cache write notice:', e);
+    }
+  }
+
+  renderIcons();
+}
+
+function loadCachedScanFromStorage() {
+  try {
+    const raw = localStorage.getItem('usisa_cached_latest_scan');
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data && (data.healthScore > 0 || (data.quadrants && data.quadrants.some(q => q && q.img)))) {
+        console.log('[Startup] Loaded cached recent scan from LocalStorage instantly.');
+        applyScanDataToState(data, false);
+      }
+    }
+  } catch (err) {
+    console.warn('[Startup] Cache parse notice:', err);
+  }
+}
+
+async function loadLatestScanFromCloud() {
+  try {
+    const scansQuery = query(collection(db, 'scans'), orderBy('timestamp', 'desc'), limit(1));
+    const querySnap = await getDocs(scansQuery);
+    if (!querySnap.empty) {
+      const latestScan = querySnap.docs[0].data();
+      console.log('[Cloud Startup] Loaded latest scan from Cloud Firestore scans collection:', latestScan);
+      applyScanDataToState(latestScan, true);
+    }
+  } catch (err) {
+    console.warn('[Cloud Startup] Fetch latest scan notice:', err);
+  }
+}
+
 function initRealtimeSync() {
   try {
     const syncDocRef = doc(db, 'system_sync', 'latest_scan');
     onSnapshot(syncDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.source && data.source !== 'android') {
+        // Sync whenever incoming data has valid scan data or source is not current instant
+        if (data.source !== 'android' || (state.analysis.healthScore === 0 && data.healthScore > 0)) {
           isReceivingRemoteSync = true;
-          console.log('[Auto-Sync] Android received real-time sync from Web Dashboard:', data);
-
-          if (data.location && data.location !== state.location) {
-            state.location = data.location;
-            localStorage.setItem('calamansi_location', data.location);
-            const locEl = document.getElementById('cfg-location');
-            if (locEl) locEl.value = data.location;
-            fetchLiveWeather('remote_sync');
-          }
-
-          if (data.weather) {
-            state.weather = data.weather;
-            updateDynamicWeatherAdvisories();
-            renderWeatherUI();
-          }
-
-          if (data.autoScanEnabled !== undefined) {
-            state.autoScanEnabled = data.autoScanEnabled;
-            localStorage.setItem('calamansi_auto_scan_enabled', data.autoScanEnabled);
-            const toggle = document.getElementById('cfg-auto-scan-toggle');
-            if (toggle) toggle.checked = data.autoScanEnabled;
-            const container = document.getElementById('auto-scan-options-container');
-            if (container) container.style.display = data.autoScanEnabled ? 'block' : 'none';
-          }
-          if (data.autoScanMode) {
-            state.autoScanMode = data.autoScanMode;
-            localStorage.setItem('calamansi_auto_scan_mode', data.autoScanMode);
-            const timeBtn = document.getElementById('mode-time-btn');
-            const intBtn = document.getElementById('mode-interval-btn');
-            const timeBox = document.getElementById('sched-time-box');
-            const intBox = document.getElementById('sched-interval-box');
-            if (timeBtn && intBtn && timeBox && intBox) {
-              timeBtn.classList.toggle('active', data.autoScanMode === 'time');
-              intBtn.classList.toggle('active', data.autoScanMode === 'interval');
-              timeBox.style.display = data.autoScanMode === 'time' ? 'block' : 'none';
-              intBox.style.display = data.autoScanMode === 'interval' ? 'block' : 'none';
-            }
-          }
-          if (data.autoScanTime) {
-            state.autoScanTime = data.autoScanTime;
-            localStorage.setItem('calamansi_auto_scan_time', data.autoScanTime);
-            const timeInput = document.getElementById('cfg-auto-scan-time');
-            if (timeInput) timeInput.value = data.autoScanTime;
-          }
-          if (data.autoScanIntervalHours) {
-            state.autoScanIntervalHours = data.autoScanIntervalHours;
-            localStorage.setItem('calamansi_auto_scan_interval', data.autoScanIntervalHours);
-            const intSelect = document.getElementById('cfg-auto-scan-interval');
-            if (intSelect) intSelect.value = String(data.autoScanIntervalHours);
-          }
-          if (data.autoAnalyzeEnabled !== undefined) {
-            state.autoAnalyzeEnabled = data.autoAnalyzeEnabled;
-            localStorage.setItem('calamansi_auto_analyze_enabled', data.autoAnalyzeEnabled);
-            const aiToggle = document.getElementById('cfg-auto-ai-toggle');
-            if (aiToggle) aiToggle.checked = data.autoAnalyzeEnabled;
-          }
-          if (data.lastAutoScanIso) {
-            state.lastAutoScanIso = data.lastAutoScanIso;
-            localStorage.setItem('calamansi_last_auto_scan_iso', data.lastAutoScanIso);
-          }
-          updateAutoScanUI();
-
-          if (data.activePreset && PRESETS[data.activePreset]) {
-            state.activePreset = data.activePreset;
-            document.querySelectorAll('.preset-chip').forEach(c => {
-              c.classList.toggle('active', c.dataset.preset === data.activePreset);
-            });
-          } else {
-            state.activePreset = '';
-            document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
-          }
-
-          if (data.activeAngleIndex !== undefined) {
-            state.activeAngleIndex = data.activeAngleIndex;
-            const angle = [0, 90, 180, 270][state.activeAngleIndex] || 0;
-            if (threeTurntableRig) threeTurntableRig.setAngleDegrees(angle);
-            document.querySelectorAll('.angle-pill-btn').forEach((b, i) => b.classList.toggle('active', i === state.activeAngleIndex));
-            document.querySelectorAll('.quadrant-mobile-box').forEach((b, i) => b.classList.toggle('active', i === state.activeAngleIndex));
-            const badge = document.getElementById('motor-status-badge');
-            if (badge) badge.textContent = `Position: ${angle}°`;
-          }
-
-          if (data.quadrants && Array.isArray(data.quadrants)) {
-            [0, 90, 180, 270].forEach((ang, idx) => {
-              const q = data.quadrants[idx];
-              if (q && q.img) {
-                const imgEl = document.getElementById(`img-${ang}`);
-                const placeholder = document.getElementById(`placeholder-${ang}`);
-                if (imgEl) {
-                  imgEl.src = q.img;
-                  imgEl.style.display = 'block';
-                }
-                if (placeholder) placeholder.style.display = 'none';
-              }
-            });
-          }
-
-          if (data.healthScore !== undefined) {
-            state.analysis.healthScore = data.healthScore;
-            document.getElementById('health-score-val').textContent = `${data.healthScore}%`;
-            const circle = document.getElementById('health-score-circle');
-            const scoreContainer = document.getElementById('health-score-container');
-            if (circle) {
-              if (data.healthScore === 0) {
-                circle.style.strokeDashoffset = 201;
-                circle.style.stroke = 'rgba(255, 255, 255, 0.2)';
-                if (scoreContainer) scoreContainer.className = 'health-score-container no-scan';
-              } else {
-                const offset = 201 - (201 * data.healthScore) / 100;
-                circle.style.strokeDashoffset = offset;
-                circle.style.stroke = data.healthScore >= 80 ? '#10b981' : (data.healthScore >= 55 ? '#f59e0b' : '#ef4444');
-                if (scoreContainer) scoreContainer.className = 'health-score-container';
-              }
-            }
-          }
-
-          if (data.statusText) {
-            document.getElementById('health-status-heading').textContent = typeof data.statusText === 'object' ? (data.statusText[state.lang] || data.statusText.en) : data.statusText;
-          }
-          if (data.summaryText) {
-            document.getElementById('health-summary-desc').textContent = typeof data.summaryText === 'object' ? (data.summaryText[state.lang] || data.summaryText.en) : data.summaryText;
-          }
-
-          if (data.leafStatus) {
-            const leafTag = document.getElementById('leaf-status-tag');
-            if (leafTag) {
-              leafTag.textContent = typeof data.leafStatus === 'object' ? (data.leafStatus[state.lang] || data.leafStatus.en) : data.leafStatus;
-              leafTag.className = `badge-tag ${data.leafTagClass || (data.healthScore === 0 ? 'tag-dimmed' : 'tag-healthy')}`;
-            }
-          }
-
-          if (data.leafFindings) {
-            const leafList = document.getElementById('leaf-findings-list');
-            const leafArr = (data.leafFindings[state.lang] || data.leafFindings.en || data.leafFindings);
-            if (leafList && Array.isArray(leafArr)) {
-              const iconName = data.healthScore === 0 ? 'info' : 'check-circle';
-              const iconStyle = data.healthScore === 0 ? 'style="color:var(--text-muted);"' : '';
-              leafList.innerHTML = leafArr.map(f => `<li><i data-lucide="${iconName}" ${iconStyle}></i> ${f}</li>`).join('');
-            }
-          }
-
-          if (data.fruitStatus) {
-            const fruitTag = document.getElementById('fruit-status-tag');
-            if (fruitTag) {
-              fruitTag.textContent = typeof data.fruitStatus === 'object' ? (data.fruitStatus[state.lang] || data.fruitStatus.en) : data.fruitStatus;
-              fruitTag.className = `badge-tag ${data.fruitTagClass || (data.healthScore === 0 ? 'tag-dimmed' : 'tag-healthy')}`;
-            }
-          }
-
-          if (data.fruitFindings) {
-            const fruitList = document.getElementById('fruit-findings-list');
-            const fruitArr = (data.fruitFindings[state.lang] || data.fruitFindings.en || data.fruitFindings);
-            if (fruitList && Array.isArray(fruitArr)) {
-              const iconName = data.healthScore === 0 ? 'info' : 'check-circle';
-              const iconStyle = data.healthScore === 0 ? 'style="color:var(--text-muted);"' : '';
-              fruitList.innerHTML = fruitArr.map(f => `<li><i data-lucide="${iconName}" ${iconStyle}></i> ${f}</li>`).join('');
-            }
-          }
-
-          if (data.organicRecs && Array.isArray(data.organicRecs)) {
-            const recContainer = document.getElementById('organic-recipes-container');
-            if (recContainer) {
-              recContainer.innerHTML = data.organicRecs.map(r => `
-                <div class="recipe-card-item">
-                  <div class="recipe-emoji-icon">${r.icon || '🌱'}</div>
-                  <div class="recipe-body">
-                    <h4>${typeof r.title === 'object' ? (r.title[state.lang] || r.title.en) : r.title}</h4>
-                    <div class="recipe-sub">${typeof r.sub === 'object' ? (r.sub[state.lang] || r.sub.en) : r.sub}</div>
-                    <p>${typeof r.desc === 'object' ? (r.desc[state.lang] || r.desc.en) : r.desc}</p>
-                  </div>
-                </div>
-              `).join('');
-            }
-          }
-
-          renderIcons();
+          console.log('[Auto-Sync] Android applied real-time sync:', data);
+          applyScanDataToState(data, true);
           setTimeout(() => { isReceivingRemoteSync = false; }, 500);
         }
+      } else {
+        // If system_sync document is empty, fallback to the latest scan from scans collection
+        loadLatestScanFromCloud();
       }
     }, (err) => {
       console.warn('[Auto-Sync] Android Firestore listener error:', err);
+      loadLatestScanFromCloud();
     });
   } catch (e) {
     console.warn('[Auto-Sync] Android listener error:', e);
+    loadLatestScanFromCloud();
   }
 }
 
@@ -2190,8 +2298,12 @@ function initAuth() {
       if (brandEmailEl) brandEmailEl.textContent = user.email || 'Cloud User';
       if (brandAvatarEl) brandAvatarEl.textContent = avatarEl?.textContent || 'US';
 
-      // Start Real-Time Bi-Directional Cloud Auto-Sync & History Listener
+      // Immediately restore last cached scan from local storage so UI is never blank
+      loadCachedScanFromStorage();
+
+      // Start Real-Time Bi-Directional Cloud Auto-Sync, Cloud Latest Scan & History Listener
       initRealtimeSync();
+      loadLatestScanFromCloud();
       initHistoryListener();
     } else {
       // Direct user immediately to the Login Page on app launch
@@ -2440,11 +2552,9 @@ function initHistoryListener() {
     const scansQuery = query(collection(db, 'scans'), orderBy('timestamp', 'desc'));
     unsubscribeHistoryListener = onSnapshot(scansQuery, (snapshot) => {
       const isFil = state.lang === 'fil';
-      if (countBadge) {
-        countBadge.textContent = `${snapshot.size} ${isFil ? 'Mga Ulat' : 'Reports'}`;
-      }
 
       if (snapshot.empty) {
+        if (countBadge) countBadge.textContent = `0 ${isFil ? 'Mga Ulat' : 'Reports'}`;
         historyListEl.innerHTML = `
           <div class="history-empty-state">
             <div class="history-empty-icon">
@@ -2458,11 +2568,32 @@ function initHistoryListener() {
         return;
       }
 
-      let html = '';
+      // Deduplicate history entries
+      const seenSignatures = new Set();
+      const cleanDocs = [];
+
       snapshot.forEach(docSnap => {
         const d = docSnap.data();
-        const docId = docSnap.id;
+        const timeMs = d.timestamp?.toMillis ? d.timestamp.toMillis() : (d.timestamp?.toDate ? d.timestamp.toDate().getTime() : 0);
+        const timeBucket = Math.floor(timeMs / (90 * 1000));
+        const quadSig = Array.isArray(d.quadrants) 
+          ? d.quadrants.map(q => (q && q.img ? q.img.slice(20, 70) : '')).join('|')
+          : '';
+        const sig = `${timeBucket}_${quadSig}`;
+        
+        if (quadSig && seenSignatures.has(sig)) {
+          return;
+        }
+        if (quadSig) seenSignatures.add(sig);
+        cleanDocs.push({ id: docSnap.id, data: d });
+      });
 
+      if (countBadge) {
+        countBadge.textContent = `${cleanDocs.length} ${isFil ? 'Mga Ulat' : 'Reports'}`;
+      }
+
+      let html = '';
+      cleanDocs.forEach(({ id: docId, data: d }) => {
         let dateStr = isFil ? 'Kamakailan' : 'Recently Saved';
         if (d.timestamp && d.timestamp.toDate) {
           const dateObj = d.timestamp.toDate();
