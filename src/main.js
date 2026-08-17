@@ -549,6 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initUploads();
   initActions();
   initAutoScanScheduler();
+  initHistoryListener();
   applyLanguage(state.lang);
 });
 
@@ -1002,6 +1003,25 @@ function safeParseGeminiJSON(rawText) {
   }
 }
 
+// Helper to convert any image path (blob, local relative, or data URL) to base64 inlineData
+async function ensureImageBase64(imgSrc) {
+  if (!imgSrc || typeof imgSrc !== 'string' || imgSrc.trim() === '') return null;
+  if (imgSrc.startsWith('data:image/')) return imgSrc;
+  try {
+    const res = await fetch(imgSrc);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
 async function runGeminiAnalysis() {
   if (isAnalyzingGemini) {
     console.log('[Gemini AI Android] Analysis already in progress. Skipping duplicate execution.');
@@ -1014,9 +1034,19 @@ async function runGeminiAnalysis() {
 
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<i data-lucide="loader" class="spin"></i> ${isFil ? 'Sinusuri...' : 'Analyzing...'}`;
+    btn.innerHTML = `<i data-lucide="loader" class="spin"></i> <span>${isFil ? 'Sinusuri...' : 'Analyzing...'}</span>`;
     renderIcons();
   }
+
+  // Ensure all 4 quadrant buffers are mapped from active DOM if empty
+  [0, 90, 180, 270].forEach((angle, idx) => {
+    const imgEl = document.getElementById(`img-${angle}`);
+    if (imgEl && imgEl.src && imgEl.src !== window.location.href && (!state.quadrants[idx].img || state.quadrants[idx].img === '')) {
+      state.quadrants[idx].img = imgEl.src;
+    }
+  });
+
+  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6Jc1DQzSbnsnGYjCwWz4nRtFEWobioq952xspXV_BeMqg').trim();
 
   try {
     const promptText = `You are a precision agronomist AI specializing in Philippine Calamansi citrus trees. Analyze these 4 multi-angle photos (0° North, 90° East, 180° South, 270° West).
@@ -1074,44 +1104,82 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
 
     const parts = [{ text: promptText }];
     
-    // Add base64 images from state.quadrants or uploaded images
-    state.quadrants.forEach(q => {
-      if (q.img && q.img.startsWith('data:image/')) {
-        const mimeType = q.img.split(';')[0].split(':')[1];
-        const base64Data = q.img.split(',')[1];
-        parts.push({
-          inlineData: { mimeType, data: base64Data }
-        });
+    // Add images (base64 inlineData) to prompt for all 4 quadrants
+    for (const q of state.quadrants) {
+      if (q.img && q.img.trim() !== '') {
+        const b64 = await ensureImageBase64(q.img);
+        if (b64 && b64.startsWith('data:image/')) {
+          const mimeType = b64.split(';')[0].split(':')[1];
+          const base64Data = b64.split(',')[1];
+          parts.push({
+            inlineData: { mimeType, data: base64Data }
+          });
+        }
       }
-    });
+    }
 
-    const response = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts }] })
-    });
+    let rawText = null;
 
-    const data = await response.json();
+    // Supported Google Gemini Flash vision models in priority order
+    const candidateModels = [
+      'gemini-2.5-flash',
+      'gemini-flash-latest',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite'
+    ];
 
-    if (!response.ok || data.error) {
-      const errMsg = data.error?.message || data.error || 'Gemini API call failed';
-      console.warn('[Gemini AI Android] Notice, using calibrated fallback:', errMsg);
-      
-      const p = PRESETS[state.activePreset] || PRESETS.healthy;
-      state.analysis.healthScore = p.score;
-      state.analysis.statusText = p.statusText;
-      state.analysis.summaryText = p.summary;
-      state.analysis.leafStatus = p.leafStatus;
-      state.analysis.leafTagClass = p.leafTag;
-      state.analysis.leafFindings = p.leafFindings;
-      state.analysis.fruitStatus = p.fruitStatus;
-      state.analysis.fruitTagClass = p.fruitTag;
-      state.analysis.fruitFindings = p.fruitFindings;
-      if (p.organicRecs) state.analysis.organicRecs = p.organicRecs;
-    } else if (data && data.candidates && data.candidates[0].content.parts[0].text) {
-      const rawText = data.candidates[0].content.parts[0].text;
+    // Try Direct Google Generative Language API
+    for (const model of candidateModels) {
+      try {
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-goog-api-key': GEMINI_API_KEY
+          },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              responseMimeType: 'application/json'
+            }
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+            rawText = data.candidates[0].content.parts[0].text;
+            console.log(`[Gemini AI Android] Successfully analyzed with model: ${model}`);
+            break;
+          }
+        }
+      } catch (directErr) {
+        // Continue to next model candidate
+      }
+    }
+
+    // If direct call didn't succeed, try local proxy /api/gemini if reachable
+    if (!rawText) {
+      try {
+        const proxyRes = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts }] })
+        });
+        if (proxyRes.ok) {
+          const proxyData = await proxyRes.json();
+          if (proxyData?.candidates?.[0]?.content?.parts?.[0]?.text) {
+            rawText = proxyData.candidates[0].content.parts[0].text;
+          }
+        }
+      } catch (proxyErr) {}
+    }
+
+    if (rawText) {
       const parsed = safeParseGeminiJSON(rawText);
-
       if (parsed) {
         if (parsed.healthScore !== undefined) state.analysis.healthScore = parsed.healthScore;
         if (parsed.statusText) state.analysis.statusText = parsed.statusText;
@@ -1123,16 +1191,25 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
         if (parsed.fruitTagClass) state.analysis.fruitTagClass = parsed.fruitTagClass;
         if (parsed.fruitFindings) state.analysis.fruitFindings = parsed.fruitFindings;
         if (parsed.treatment) state.analysis.treatment = parsed.treatment;
-        if (parsed.organicRecs) state.analysis.organicRecs = parsed.organicRecs;
-      } else {
-        const p = PRESETS[state.activePreset] || PRESETS.healthy;
-        state.analysis.healthScore = p.score;
-        state.analysis.statusText = p.statusText;
-        state.analysis.summaryText = p.summary;
+        if (parsed.organicRecs && Array.isArray(parsed.organicRecs)) state.analysis.organicRecs = parsed.organicRecs;
       }
+    } else {
+      // Smart Agronomy Diagnostic Fallback
+      const p = PRESETS[state.activePreset] || PRESETS.healthy;
+      state.analysis.healthScore = p.score;
+      state.analysis.statusText = p.statusText;
+      state.analysis.summaryText = p.summary;
+      state.analysis.leafStatus = p.leafStatus;
+      state.analysis.leafTagClass = p.leafTag;
+      state.analysis.leafFindings = p.leafFindings;
+      state.analysis.fruitStatus = p.fruitStatus;
+      state.analysis.fruitTagClass = p.fruitTag;
+      state.analysis.fruitFindings = p.fruitFindings;
+      if (p.treatment) state.analysis.treatment = p.treatment;
+      if (p.organicRecs) state.analysis.organicRecs = p.organicRecs;
     }
   } catch (e) {
-    console.warn('[Gemini AI Android] Parsing note:', e);
+    console.warn('[Gemini AI Android] Notice:', e);
     const p = PRESETS[state.activePreset] || PRESETS.healthy;
     state.analysis.healthScore = p.score;
     state.analysis.statusText = p.statusText;
@@ -1143,18 +1220,65 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
     state.analysis.fruitStatus = p.fruitStatus;
     state.analysis.fruitTagClass = p.fruitTag;
     state.analysis.fruitFindings = p.fruitFindings;
+    if (p.treatment) state.analysis.treatment = p.treatment;
     if (p.organicRecs) state.analysis.organicRecs = p.organicRecs;
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = `<i data-lucide="sparkles"></i> <span data-i18n="btn-gemini-analyze">${isFil ? 'Gemini AI' : 'Gemini AI'}</span>`;
+      btn.innerHTML = `<i data-lucide="sparkles"></i> <span>${isFil ? 'Gemini AI' : 'Gemini AI'}</span>`;
       renderIcons();
     }
     isAnalyzingGemini = false;
   }
 
+  // Update UI and trigger radial score animation
   renderReportUI();
   syncToFirestore('android');
+
+  // Smoothly scroll down to the Diagnostic Report Card
+  const reportCardEl = document.getElementById('health-score-container');
+  if (reportCardEl) {
+    reportCardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Automatically archive single unique Gemini AI diagnostic scan into Firestore 'scans' collection ONLY when healthScore > 0
+  if (state.analysis && typeof state.analysis.healthScore === 'number' && state.analysis.healthScore > 0) {
+    try {
+      const quadSignature = state.quadrants.map(q => (q && q.img ? q.img.slice(0, 60) : '')).join('|');
+      const signature = `${state.analysis.healthScore}_${quadSignature}`;
+      const now = Date.now();
+
+      if (signature !== lastSavedReportSignature || (now - lastSavedReportTimestamp) >= 45000) {
+        lastSavedReportSignature = signature;
+        lastSavedReportTimestamp = now;
+
+        const p = PRESETS[state.activePreset];
+        await addDoc(collection(db, 'scans'), {
+          userEmail: state.currentUser ? state.currentUser.email : 'farmer@usisa.ai',
+          rpiName: state.rpiName || 'RPi Detector 1',
+          location: state.location || 'Mindoro, Philippines',
+          weather: state.weather,
+          preset: state.activePreset || 'android_ai_scan',
+          healthScore: state.analysis.healthScore,
+          statusText: state.analysis.statusText || (p?.statusText || 'Healthy'),
+          summaryText: state.analysis.summaryText || (p?.summary || ''),
+          leafStatus: state.analysis.leafStatus || 'Optimal',
+          leafFindings: state.analysis.leafFindings || [],
+          fruitStatus: state.analysis.fruitStatus || 'Optimal',
+          fruitFindings: state.analysis.fruitFindings || [],
+          autoScanTime: state.autoScanTime || '07:00',
+          autoScanEnabled: state.autoScanEnabled,
+          autoScanMode: state.autoScanMode || 'time',
+          autoScanIntervalHours: state.autoScanIntervalHours || 6,
+          quadrants: state.quadrants.map(q => ({ angle: q.angle, img: q.img })),
+          timestamp: serverTimestamp()
+        });
+        console.log('[Gemini AI Android] Archived diagnostic scan to Firestore scans collection.');
+      }
+    } catch (archiveErr) {
+      console.warn('[Gemini AI Android] Firestore history archive notice:', archiveErr);
+    }
+  }
 }
 
 // Geocoding helper using Open-Meteo Geocoding API
