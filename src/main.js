@@ -149,9 +149,9 @@ const TRANSLATIONS = {
     'quadrant-header': '4-Angle Quadrants',
     'btn-gemini-analyze': 'Gemini AI',
     'side-1': '0° North',
-    'side-2': '90° East',
-    'side-3': '180° South',
-    'side-4': '270° West',
+    'side-2': '90° West',
+    'side-3': '180° East',
+    'side-4': '270° South',
     'gemini-report-title': 'Gemini AI Diagnostic Report',
     'leaf-analysis-title': 'Leaves Condition',
     'fruit-analysis-title': 'Fruit Condition',
@@ -262,9 +262,9 @@ const TRANSLATIONS = {
     'quadrant-header': '4 na Anggulo',
     'btn-gemini-analyze': 'Gemini AI',
     'side-1': '0° Hilaga',
-    'side-2': '90° Silangan',
-    'side-3': '180° Timog',
-    'side-4': '270° Kanluran',
+    'side-2': '90° Kanluran',
+    'side-3': '180° Silangan',
+    'side-4': '270° Timog',
     'gemini-report-title': 'Ulat ng Gemini AI',
     'leaf-analysis-title': 'Kalagayan ng Dahon',
     'fruit-analysis-title': 'Kalagayan ng Bunga',
@@ -740,10 +740,10 @@ async function runFull360Scan() {
 
   let step = 0;
   const angles = [0, 90, 180, 270];
-  const cardinalNames = ['0° North', '90° East', '180° South', '270° West'];
+  const cardinalNames = ['0° North', '90° West', '180° East', '270° South'];
 
   const interval = setInterval(() => {
-    // Phase 1: Clockwise Scanning Steps (0° -> 90° -> 180° -> 270°)
+    // Phase 1: Counter-Clockwise Scanning Steps (0° North -> 90° West -> 180° East -> 270° South)
     if (step < 4) {
       const angle = angles[step];
       state.activeAngleIndex = step;
@@ -752,16 +752,16 @@ async function runFull360Scan() {
       document.querySelectorAll('.angle-pill-btn').forEach((b, i) => b.classList.toggle('active', i === step));
       document.querySelectorAll('.quadrant-mobile-box').forEach((b, i) => b.classList.toggle('active', i === step));
 
-      badge.textContent = `${isFil ? 'CW: Inaayos ang Focus' : 'CW: Focusing'} ${cardinalNames[step]}`;
+      badge.textContent = `${isFil ? 'CCW: Inaayos ang Focus' : 'CCW: Focusing'} ${cardinalNames[step]}`;
       badge.className = 'badge-tag tag-warning';
 
       step++;
       return;
     }
 
-    // Phase 2: Counter-Clockwise Return-to-Home Rewind
+    // Phase 2: Clockwise Return-to-Home Rewind (270° South -> 0° North)
     if (step === 4) {
-      badge.textContent = isFil ? 'CCW: Ibinabalik sa 0°...' : 'CCW: Rewinding to 0°...';
+      badge.textContent = isFil ? 'CW: Ibinabalik sa 0°...' : 'CW: Rewinding to 0°...';
       badge.className = 'badge-tag tag-warning';
       
       state.activeAngleIndex = 0;
@@ -919,8 +919,9 @@ function renderReportUI() {
   if (leafList) {
     const leafArr = a.leafFindings ? (a.leafFindings[state.lang] || a.leafFindings.en || a.leafFindings) : [];
     if (Array.isArray(leafArr)) {
-      const iconName = score === 0 ? 'info' : 'check-circle';
-      const iconStyle = score === 0 ? 'style="color:var(--text-muted);"' : '';
+      const isWarnOrBad = a.leafTagClass === 'tag-danger' || a.leafTagClass === 'tag-warning' || score < 60;
+      const iconName = isWarnOrBad ? 'alert-triangle' : (score === 0 ? 'info' : 'check-circle');
+      const iconStyle = isWarnOrBad ? 'style="color:var(--accent-red,#ef4444);"' : (score === 0 ? 'style="color:var(--text-muted);"' : 'style="color:var(--accent-green,#10b981);"');
       leafList.innerHTML = leafArr.map(f => `<li><i data-lucide="${iconName}" ${iconStyle}></i> ${f}</li>`).join('');
     }
   }
@@ -936,8 +937,9 @@ function renderReportUI() {
   if (fruitList) {
     const fruitArr = a.fruitFindings ? (a.fruitFindings[state.lang] || a.fruitFindings.en || a.fruitFindings) : [];
     if (Array.isArray(fruitArr)) {
-      const iconName = score === 0 ? 'info' : 'check-circle';
-      const iconStyle = score === 0 ? 'style="color:var(--text-muted);"' : '';
+      const isWarnOrBad = a.fruitTagClass === 'tag-danger' || a.fruitTagClass === 'tag-warning' || score < 60;
+      const iconName = isWarnOrBad ? 'alert-triangle' : (score === 0 ? 'info' : 'check-circle');
+      const iconStyle = isWarnOrBad ? 'style="color:var(--accent-red,#ef4444);"' : (score === 0 ? 'style="color:var(--text-muted);"' : 'style="color:var(--accent-green,#10b981);"');
       fruitList.innerHTML = fruitArr.map(f => `<li><i data-lucide="${iconName}" ${iconStyle}></i> ${f}</li>`).join('');
     }
   }
@@ -956,6 +958,18 @@ function renderReportUI() {
           </div>
         </div>
       `).join('');
+    } else if (a.isCalamansi === false || a.healthScore === 0) {
+      const isFil = state.lang === 'fil';
+      recContainer.innerHTML = `
+        <div class="recipe-card-item" style="border-left: 3px solid var(--accent-red, #ef4444);">
+          <div class="recipe-emoji-icon">🍋</div>
+          <div class="recipe-body">
+            <h4>${isFil ? 'Itutok sa Puno ng Calamansi' : 'Aim Camera at Calamansi Tree'}</h4>
+            <div class="recipe-sub">${isFil ? 'Kailangan ang Tamang Halaman' : 'Calamansi Target Required'}</div>
+            <p>${isFil ? 'Mangyaring itutok ang scanner sa dahon, sanga, o bunga ng Calamansi upang makabuo ng angkop na organikong pataba at lunas.' : 'Please aim the 360° turret or upload images of Calamansi citrus foliage, fruit, or orchard soil to generate tailored organic recipes.'}</p>
+          </div>
+        </div>
+      `;
     } else {
       const defaultRecs = [
         { icon: "☕", title: { en: "Used Coffee Grounds", fil: "Pinagkapan ng Kape" }, sub: { en: "Green Leaves & Growth", fil: "Luntiang Dahon at Paglaki" }, desc: { en: "Mix 2 tbsp of dried spent coffee grounds into topsoil every 2 weeks.", fil: "Maghalo ng 2 kutsarang tuyong kape sa lupa kada 2 linggo." } },
@@ -1046,15 +1060,70 @@ async function runGeminiAnalysis() {
     }
   });
 
+  const hasImages = state.quadrants.some(q => q.img && q.img.trim() !== '');
+  if (!hasImages && !state.activePreset) {
+    state.analysis.isCalamansi = false;
+    state.analysis.healthScore = 0;
+    state.analysis.statusText = { en: 'No Scan / Image Available', fil: 'Walang Larawan' };
+    state.analysis.summaryText = {
+      en: 'Please capture a 360° scan using the motorized turret or upload Calamansi leaf/fruit photos before running Gemini AI analysis.',
+      fil: 'Mangyaring kumuha muna ng 360° scan o mag-upload ng larawan ng dahon/bunga ng Calamansi bago magsuri.'
+    };
+    state.analysis.leafStatus = { en: 'Awaiting Target', fil: 'Naghihintay' };
+    state.analysis.leafTagClass = 'tag-warning';
+    state.analysis.leafFindings = {
+      en: ['No image uploaded or captured in the quadrant slots.'],
+      fil: ['Walang larawang nailagay sa mga quadrant.']
+    };
+    state.analysis.fruitStatus = { en: 'Awaiting Target', fil: 'Naghihintay' };
+    state.analysis.fruitTagClass = 'tag-warning';
+    state.analysis.fruitFindings = {
+      en: ['No image uploaded or captured in the quadrant slots.'],
+      fil: ['Walang larawang nailagay sa mga quadrant.']
+    };
+    state.analysis.treatment = {
+      type: 'warn',
+      title: { en: 'Target Required', fil: 'Kailangan ang Kuha' },
+      desc: { en: 'Start a 360° scan to acquire multi-angle photos of the Calamansi canopy.', fil: 'Magsimula ng 360° scan upang makakuha ng larawan sa 4 na anggulo.' }
+    };
+    state.analysis.organicRecs = [];
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="sparkles"></i> <span>${isFil ? 'Gemini AI' : 'Gemini AI'}</span>`;
+      renderIcons();
+    }
+    isAnalyzingGemini = false;
+    renderReportUI();
+    return;
+  }
+
   const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6Jc1DQzSbnsnGYjCwWz4nRtFEWobioq952xspXV_BeMqg').trim();
 
   try {
-    const promptText = `You are a precision agronomist AI specializing in Philippine Calamansi citrus trees. Analyze these 4 multi-angle photos (0° North, 90° East, 180° South, 270° West).
-Also consider current weather in ${state.location}: Temp: ${state.weather.temp}°C, Humidity: ${state.weather.humidity}%, Rain Chance: ${state.weather.rainChance}%.
+    const promptText = `You are an expert precision plant pathologist and computer vision agronomist specializing strictly in Philippine Calamansi (Citrus microcarpa / Citrofortunella microcarpa) citrus trees, foliar canopies, citrus fruits, and orchard soil.
 
-Evaluate the foliage and fruit clusters for Citrus Canker, Fruit Scab, Melanose, Scale Insects, Chlorosis (yellow veins), Leaf Miner, or Sooty Mold.
+MANDATORY TARGET VALIDATION RULE:
+First, inspect the provided image(s) carefully. You must verify whether the image shows genuine Calamansi citrus tree components (leaves, twigs, fruits, flowers, tree canopy) or orchard soil surrounding a citrus tree.
+- IF the images DO NOT contain a Calamansi citrus tree or its orchard environment (e.g. human face/body, room interior, animal, household items, electronics, furniture, vehicle, random indoor objects, or an unrelated non-citrus plant):
+  1. Set "isCalamansi": false.
+  2. Set "healthScore": 0.
+  3. Set "statusText": { "en": "Invalid Target (Not Calamansi / Soil)", "fil": "Hindi Calamansi o Lupa (Maling Kuha)" }.
+  4. Set "summaryText": { "en": "The captured frames do not contain a Calamansi (Citrus microcarpa) citrus tree, leaves, fruit, or orchard soil. Diagnostic evaluation is strictly calibrated for Calamansi to prevent false readings. Please aim the camera at a Calamansi tree.", "fil": "Ang mga nakuha o na-upload na larawan ay hindi kinikilalang puno ng Calamansi o lupa ng taniman. Ang pagsusuri ay para lamang sa Calamansi. Mangyaring itutok ang scanner sa puno ng Calamansi." }.
+  5. Set "leafStatus": { "en": "Non-Citrus Target", "fil": "Hindi Calamansi" }, "leafTagClass": "tag-danger", "leafFindings": { "en": ["Target in frame is not identified as Calamansi foliage.", "No citrus foliar canopy structure recognized.", "Diagnostic disease evaluation aborted."], "fil": ["Ang bagay sa larawan ay hindi dahon ng Calamansi.", "Walang nakitang sanga o dahon ng sitrus.", "Itinigil ang pagsusuri dahil hindi ito Calamansi."] }.
+  6. Set "fruitStatus": { "en": "No Citrus Detected", "fil": "Walang Calamansi" }, "fruitTagClass": "tag-danger", "fruitFindings": { "en": ["No Citrus microcarpa fruit clusters detected.", "Target is not citrus fruit."], "fil": ["Walang nakitang bunga ng Calamansi.", "Maling bagay ang nasa larawan."] }.
+  7. Set "treatment": { "type": "bad", "title": { "en": "Aim at Calamansi Tree", "fil": "Itutok sa Calamansi" }, "desc": { "en": "Please point the 360° foliar scanner at a live Calamansi citrus tree or upload Calamansi leaf/fruit photos to receive disease diagnostics.", "fil": "Itutok ang camera sa totoong puno ng Calamansi upang makakuha ng tamang gamot at alaga." } }.
+  8. Set "organicRecs": [].
+
+- IF the images DO contain a Calamansi citrus tree (foliage, fruits, or orchard soil):
+  1. Set "isCalamansi": true.
+  2. Evaluate the 4 perspectives (0° North, 90° West, 180° East, 270° South) in combination with current environmental telemetry (${state.location}, Temp: ${state.weather.temp}°C, Humidity: ${state.weather.humidity}%, Rain Chance: ${state.weather.rainChance}%).
+  3. Inspect for Citrus Canker (raised corky halo lesions), Fruit Scab (Elsinoë fawcettii pustules), Melanose (sandpaper spots), Chlorosis (interveinal yellowing), Citrus Leaf Miner (silvery serpentine mines), Scale Insects & Sooty Mold, or Healthy canopy.
+  4. Compute an accurate healthScore (1-100).
+  5. Detail specific angle-based leafFindings, fruitFindings, treatment protocol, and 3 tailored zero-cost DIY organic recipes (e.g. coffee grounds, eggshells, banana tea, neem spray) along with rain/irrigation advisory.
+
 Respond ONLY in valid JSON format with this exact structure:
 {
+  "isCalamansi": true,
   "healthScore": 88,
   "statusText": { "en": "Vibrant & Healthy", "fil": "Napakamalusog at Maganda" },
   "summaryText": { "en": "Multi-angle vision indicates glossy chlorophyll density and no visible lesions.", "fil": "Ang pagsusuri sa 4 na anggulo ay nagpapakita ng malusog na dahon at walang sakit." },
@@ -1081,18 +1150,6 @@ Respond ONLY in valid JSON format with this exact structure:
       "title": { "en": "Used Coffee Grounds", "fil": "Pinagkapan ng Kape" },
       "sub": { "en": "Green Leaves & Growth", "fil": "Luntiang Dahon at Paglaki" },
       "desc": { "en": "Mix 2 tbsp of dried spent coffee grounds into topsoil every 2 weeks.", "fil": "Maghalo ng 2 kutsarang tuyong kape sa lupa kada 2 linggo." }
-    },
-    {
-      "icon": "🥚",
-      "title": { "en": "Crushed Eggshells", "fil": "Binudburang Balat ng Itlog" },
-      "sub": { "en": "Strong Roots & Flowering", "fil": "Matibay na Ugat at Bulaklak" },
-      "desc": { "en": "Boil and crush eggshells. Mix 2 tbsp powder with 1L water.", "fil": "Pakuluan at durugin ang balat ng itlog. Ihalo sa 1L tubig." }
-    },
-    {
-      "icon": "🍌",
-      "title": { "en": "Banana Peel Tea", "fil": "Pinakuluang Balat ng Saging" },
-      "sub": { "en": "Juicy Calamansi Fruit", "fil": "Makatás at Malaking Bunga" },
-      "desc": { "en": "Chop 3 banana peels and soak in 1L water for 3 days.", "fil": "Hiwain ang 3 balat ng saging at ibabad sa 1L tubig nang 3 araw." }
     }
   ],
   "weatherAdvisory": {
@@ -1181,47 +1238,88 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
     if (rawText) {
       const parsed = safeParseGeminiJSON(rawText);
       if (parsed) {
-        if (parsed.healthScore !== undefined) state.analysis.healthScore = parsed.healthScore;
-        if (parsed.statusText) state.analysis.statusText = parsed.statusText;
-        if (parsed.summaryText) state.analysis.summaryText = parsed.summaryText;
-        if (parsed.leafStatus) state.analysis.leafStatus = parsed.leafStatus;
-        if (parsed.leafTagClass) state.analysis.leafTagClass = parsed.leafTagClass;
-        if (parsed.leafFindings) state.analysis.leafFindings = parsed.leafFindings;
-        if (parsed.fruitStatus) state.analysis.fruitStatus = parsed.fruitStatus;
-        if (parsed.fruitTagClass) state.analysis.fruitTagClass = parsed.fruitTagClass;
-        if (parsed.fruitFindings) state.analysis.fruitFindings = parsed.fruitFindings;
-        if (parsed.treatment) state.analysis.treatment = parsed.treatment;
-        if (parsed.organicRecs && Array.isArray(parsed.organicRecs)) state.analysis.organicRecs = parsed.organicRecs;
+        if (parsed.isCalamansi === false || parsed.healthScore === 0) {
+          state.analysis.isCalamansi = false;
+          state.analysis.healthScore = 0;
+          state.analysis.statusText = parsed.statusText || { en: 'Invalid Target (Not Calamansi / Soil)', fil: 'Hindi Calamansi o Lupa (Maling Kuha)' };
+          state.analysis.summaryText = parsed.summaryText || { en: 'The captured frames do not contain a recognized Calamansi citrus tree or orchard soil. Disease diagnostics aborted.', fil: 'Ang larawan ay hindi kinikilalang puno ng Calamansi o lupa ng taniman. Itinigil ang pagsusuri.' };
+          state.analysis.leafStatus = parsed.leafStatus || { en: 'Non-Citrus Target', fil: 'Hindi Calamansi' };
+          state.analysis.leafTagClass = parsed.leafTagClass || 'tag-danger';
+          state.analysis.leafFindings = parsed.leafFindings || {
+            en: ['Target in frame is not identified as Calamansi foliage.', 'Diagnostic evaluation halted.'],
+            fil: ['Ang bagay sa larawan ay hindi dahon ng Calamansi.', 'Itinigil ang pagsusuri.']
+          };
+          state.analysis.fruitStatus = parsed.fruitStatus || { en: 'No Citrus Detected', fil: 'Walang Calamansi' };
+          state.analysis.fruitTagClass = parsed.fruitTagClass || 'tag-danger';
+          state.analysis.fruitFindings = parsed.fruitFindings || {
+            en: ['No Calamansi fruit clusters detected.', 'Non-citrus target.'],
+            fil: ['Walang nakitang bunga ng Calamansi.', 'Maling bagay ang nasa larawan.']
+          };
+          state.analysis.treatment = parsed.treatment || {
+            type: 'bad',
+            title: { en: 'Aim at Calamansi Tree', fil: 'Itutok sa Calamansi' },
+            desc: { en: 'Please point the optical sensor at a live Calamansi citrus tree to receive AI plant health evaluation.', fil: 'Itutok ang camera sa totoong puno ng Calamansi upang masuri ang kalusugan nito.' }
+          };
+          state.analysis.organicRecs = [];
+        } else {
+          state.analysis.isCalamansi = true;
+          if (parsed.healthScore !== undefined) state.analysis.healthScore = parsed.healthScore;
+          if (parsed.statusText) state.analysis.statusText = parsed.statusText;
+          if (parsed.summaryText) state.analysis.summaryText = parsed.summaryText;
+          if (parsed.leafStatus) state.analysis.leafStatus = parsed.leafStatus;
+          if (parsed.leafTagClass) state.analysis.leafTagClass = parsed.leafTagClass;
+          if (parsed.leafFindings) state.analysis.leafFindings = parsed.leafFindings;
+          if (parsed.fruitStatus) state.analysis.fruitStatus = parsed.fruitStatus;
+          if (parsed.fruitTagClass) state.analysis.fruitTagClass = parsed.fruitTagClass;
+          if (parsed.fruitFindings) state.analysis.fruitFindings = parsed.fruitFindings;
+          if (parsed.treatment) state.analysis.treatment = parsed.treatment;
+          if (parsed.organicRecs && Array.isArray(parsed.organicRecs)) state.analysis.organicRecs = parsed.organicRecs;
+        }
       }
     } else {
-      // Smart Agronomy Diagnostic Fallback
-      const p = PRESETS[state.activePreset] || PRESETS.healthy;
-      state.analysis.healthScore = p.score;
-      state.analysis.statusText = p.statusText;
-      state.analysis.summaryText = p.summary;
-      state.analysis.leafStatus = p.leafStatus;
-      state.analysis.leafTagClass = p.leafTag;
-      state.analysis.leafFindings = p.leafFindings;
-      state.analysis.fruitStatus = p.fruitStatus;
-      state.analysis.fruitTagClass = p.fruitTag;
-      state.analysis.fruitFindings = p.fruitFindings;
-      if (p.treatment) state.analysis.treatment = p.treatment;
-      if (p.organicRecs) state.analysis.organicRecs = p.organicRecs;
+      if (state.activePreset) {
+        const p = PRESETS[state.activePreset];
+        if (p) {
+          state.analysis.isCalamansi = true;
+          state.analysis.healthScore = p.score;
+          state.analysis.statusText = p.statusText;
+          state.analysis.summaryText = p.summary;
+          state.analysis.leafStatus = p.leafStatus;
+          state.analysis.leafTagClass = p.leafTag;
+          state.analysis.leafFindings = p.leafFindings;
+          state.analysis.fruitStatus = p.fruitStatus;
+          state.analysis.fruitTagClass = p.fruitTag;
+          state.analysis.fruitFindings = p.fruitFindings;
+          if (p.treatment) state.analysis.treatment = p.treatment;
+          if (p.organicRecs) state.analysis.organicRecs = p.organicRecs;
+        }
+      } else {
+        state.analysis.isCalamansi = false;
+        state.analysis.healthScore = 0;
+        state.analysis.statusText = { en: 'AI Verification Failed / Invalid Target', fil: 'Bigo ang Pagsusuri / Maling Kuha' };
+        state.analysis.summaryText = { en: 'Could not detect genuine Calamansi foliage or citrus orchard soil in the scan frames. Disease diagnostics aborted to prevent false readings.', fil: 'Hindi kinilala ang larawan bilang dahon o lupa ng Calamansi. Itinigil ang pagsusuri upang maiwasan ang maling ulat.' };
+        state.analysis.leafStatus = { en: 'Unrecognized Target', fil: 'Hindi Calamansi' };
+        state.analysis.leafTagClass = 'tag-danger';
+        state.analysis.fruitStatus = { en: 'No Fruit Detected', fil: 'Walang Calamansi' };
+        state.analysis.fruitTagClass = 'tag-danger';
+      }
     }
   } catch (e) {
     console.warn('[Gemini AI Android] Notice:', e);
-    const p = PRESETS[state.activePreset] || PRESETS.healthy;
-    state.analysis.healthScore = p.score;
-    state.analysis.statusText = p.statusText;
-    state.analysis.summaryText = p.summary;
-    state.analysis.leafStatus = p.leafStatus;
-    state.analysis.leafTagClass = p.leafTag;
-    state.analysis.leafFindings = p.leafFindings;
-    state.analysis.fruitStatus = p.fruitStatus;
-    state.analysis.fruitTagClass = p.fruitTag;
-    state.analysis.fruitFindings = p.fruitFindings;
-    if (p.treatment) state.analysis.treatment = p.treatment;
-    if (p.organicRecs) state.analysis.organicRecs = p.organicRecs;
+    if (state.activePreset) {
+      const p = PRESETS[state.activePreset];
+      if (p) {
+        state.analysis.isCalamansi = true;
+        state.analysis.healthScore = p.score;
+        state.analysis.statusText = p.statusText;
+        state.analysis.summaryText = p.summary;
+      }
+    } else {
+      state.analysis.isCalamansi = false;
+      state.analysis.healthScore = 0;
+      state.analysis.statusText = { en: 'AI Verification Failed', fil: 'Bigo ang Pagsusuri' };
+      state.analysis.summaryText = { en: 'Could not connect to Gemini Vision AI service. Ensure network connectivity and point the camera at a Calamansi tree.', fil: 'Hindi makakonekta sa AI. Siguraduhing may internet at itutok sa Calamansi.' };
+    }
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -1241,8 +1339,8 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
     reportCardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  // Automatically archive single unique Gemini AI diagnostic scan into Firestore 'scans' collection ONLY when healthScore > 0
-  if (state.analysis && typeof state.analysis.healthScore === 'number' && state.analysis.healthScore > 0) {
+  // Automatically archive single unique Gemini AI diagnostic scan into Firestore 'scans' collection ONLY when genuine Calamansi and healthScore > 0
+  if (state.analysis && state.analysis.isCalamansi === true && typeof state.analysis.healthScore === 'number' && state.analysis.healthScore > 0) {
     try {
       const quadSignature = state.quadrants.map(q => (q && q.img ? q.img.slice(0, 60) : '')).join('|');
       const signature = `${state.analysis.healthScore}_${quadSignature}`;

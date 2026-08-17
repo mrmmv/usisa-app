@@ -91,6 +91,51 @@ document.addEventListener('DOMContentLoaded', () => {
   const linkToLogin = document.getElementById('link-to-login');
   const alertBox = document.getElementById('auth-alert');
 
+  const emailInput = document.getElementById('login-email');
+  const passInput = document.getElementById('login-password');
+  const regEmail = document.getElementById('reg-email');
+  const regPass = document.getElementById('reg-password');
+  const regName = document.getElementById('reg-fullname');
+
+  // Ensure login fields start completely empty
+  if (emailInput) {
+    emailInput.value = '';
+    emailInput.addEventListener('focus', () => {
+      if (emailInput.value === 'farmer@usisa.com' || emailInput.value === 'farmer@example.com') {
+        emailInput.value = '';
+      } else {
+        emailInput.select();
+      }
+    });
+    emailInput.addEventListener('click', () => {
+      if (emailInput.value === 'farmer@usisa.com' || emailInput.value === 'farmer@example.com') {
+        emailInput.value = '';
+      }
+    });
+  }
+
+  if (passInput) {
+    passInput.value = '';
+    passInput.addEventListener('focus', () => {
+      if (passInput.value === 'password123' || passInput.value === '••••••••') {
+        passInput.value = '';
+      } else {
+        passInput.select();
+      }
+    });
+    passInput.addEventListener('click', () => {
+      if (passInput.value === 'password123' || passInput.value === '••••••••') {
+        passInput.value = '';
+      }
+    });
+  }
+
+  [regEmail, regPass, regName].forEach(input => {
+    if (input) {
+      input.addEventListener('focus', () => input.select());
+    }
+  });
+
   function showAlert(msg, isError = true) {
     if (!alertBox) return;
     alertBox.style.display = 'block';
