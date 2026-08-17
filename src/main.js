@@ -1025,20 +1025,55 @@ function safeParseGeminiJSON(rawText) {
   }
 }
 
-// Helper to convert any image path (blob, local relative, or data URL) to base64 inlineData
+// Helper to compress base64 data URL to prevent payload too large errors
+function compressBase64Image(dataUrl, maxDimension = 1024, quality = 0.8) {
+  return new Promise((resolve) => {
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+      return resolve(dataUrl);
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressed);
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+// Helper to convert any image path (blob, local relative, or data URL) to compressed base64 inlineData
 async function ensureImageBase64(imgSrc) {
   if (!imgSrc || typeof imgSrc !== 'string' || imgSrc.trim() === '') return null;
-  if (imgSrc.startsWith('data:image/')) return imgSrc;
+  if (imgSrc.startsWith('data:image/')) {
+    return await compressBase64Image(imgSrc, 1024, 0.8);
+  }
   try {
     const res = await fetch(imgSrc);
     if (!res.ok) return null;
     const blob = await res.blob();
-    return new Promise((resolve) => {
+    const rawDataUrl = await new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result);
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(blob);
     });
+    return await compressBase64Image(rawDataUrl, 1024, 0.8);
   } catch (e) {
     return null;
   }
@@ -1112,7 +1147,7 @@ async function runGeminiAnalysis() {
     return;
   }
 
-  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6IG2Wtdn7md0POEmYmHH3jpDbdrXmbS5m3_Fvx4EEmayQ').trim();
+  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6J0UtbmquunnvMmi9ZbrauUrZgSHG1DOpWrnU-TA6eCyA').trim();
 
   try {
     const promptText = `You are an expert precision plant pathologist and computer vision agronomist specializing strictly in Philippine Calamansi (Citrus microcarpa / Citrofortunella microcarpa) citrus trees, foliar canopies, citrus fruits, and orchard soil.
