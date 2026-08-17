@@ -99,37 +99,9 @@ body {
   }
 }
 
-/* Android Simulated Status Bar */
+/* Android Simulated Status Bar (Disabled for Native Status Bar) */
 .android-status-bar {
-  height: var(--status-bar-height);
-  background: var(--android-topbar-bg);
-  backdrop-filter: blur(12px);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 18px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  z-index: 100;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
-}
-
-.status-bar-time {
-  font-family: var(--font-mono);
-  color: #fff;
-  letter-spacing: 0.5px;
-}
-
-.status-bar-icons {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-bar-icons i {
-  width: 13px;
-  height: 13px;
+  display: none !important;
 }
 
 /* Android App Bar Header */

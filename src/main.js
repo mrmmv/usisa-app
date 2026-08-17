@@ -710,6 +710,10 @@ async function runFull360Scan() {
   if (state.isScanning) return;
   state.isScanning = true;
 
+  // Reset any active sample preset so fresh scan data is strictly evaluated
+  state.activePreset = '';
+  document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+
   const btn = document.getElementById('start-360-scan-btn');
   const badge = document.getElementById('motor-status-badge');
   const isFil = state.lang === 'fil';
@@ -727,6 +731,7 @@ async function runFull360Scan() {
       command: 'scan_360',
       commandTimestamp: commandTimestamp,
       isScanning: true,
+      activePreset: '',
       source: 'android'
     }, { merge: true });
   } catch (err) {
@@ -811,6 +816,9 @@ function initUploads() {
             const idx = [0, 90, 180, 270].indexOf(angle);
             if (idx !== -1) {
               state.quadrants[idx].img = event.target.result;
+              // Reset any sample preset state so genuine user photo is analyzed
+              state.activePreset = '';
+              document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
               syncToFirestore('android');
             }
           };
@@ -1061,6 +1069,13 @@ async function runGeminiAnalysis() {
   });
 
   const hasImages = state.quadrants.some(q => q.img && q.img.trim() !== '');
+
+  // If actual images are loaded (from live scan or photo upload), strictly reset preset mode
+  if (hasImages) {
+    state.activePreset = '';
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+  }
+
   if (!hasImages && !state.activePreset) {
     state.analysis.isCalamansi = false;
     state.analysis.healthScore = 0;
@@ -1187,7 +1202,7 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
       'gemini-3.5-flash-lite'
     ];
 
-    // Try Direct Google Generative Language API
+    // 1. Try Direct Google Generative Language API
     for (const model of candidateModels) {
       try {
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
@@ -1214,25 +1229,34 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
           }
         }
       } catch (directErr) {
-        // Continue to next model candidate
+        // Continue to next candidate model
       }
     }
 
-    // If direct call didn't succeed, try local proxy /api/gemini if reachable
+    // 2. If direct call didn't succeed, try Backend Proxy Endpoints (VPS / Cloud / LAN)
     if (!rawText) {
-      try {
-        const proxyRes = await fetch('/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts }] })
-        });
-        if (proxyRes.ok) {
-          const proxyData = await proxyRes.json();
-          if (proxyData?.candidates?.[0]?.content?.parts?.[0]?.text) {
-            rawText = proxyData.candidates[0].content.parts[0].text;
+      const proxyEndpoints = [
+        'https://usisa.duckdns.org/api/gemini',
+        'http://187.77.114.33/api/gemini',
+        '/api/gemini'
+      ];
+      for (const endpoint of proxyEndpoints) {
+        try {
+          const proxyRes = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts }] })
+          });
+          if (proxyRes.ok) {
+            const proxyData = await proxyRes.json();
+            if (proxyData?.candidates?.[0]?.content?.parts?.[0]?.text) {
+              rawText = proxyData.candidates[0].content.parts[0].text;
+              console.log(`[Gemini AI Android] Successfully analyzed Plant Vision via Proxy: ${endpoint}`);
+              break;
+            }
           }
-        }
-      } catch (proxyErr) {}
+        } catch (proxyErr) {}
+      }
     }
 
     if (rawText) {
@@ -1277,48 +1301,73 @@ Note: leafTagClass and fruitTagClass must be one of: 'tag-healthy', 'tag-warning
         }
       }
     } else {
-      if (state.activePreset) {
+      // ONLY apply sample preset fallback if user explicitly requested a preset AND has no live images
+      if (!hasImages && state.activePreset && PRESETS[state.activePreset]) {
         const p = PRESETS[state.activePreset];
-        if (p) {
-          state.analysis.isCalamansi = true;
-          state.analysis.healthScore = p.score;
-          state.analysis.statusText = p.statusText;
-          state.analysis.summaryText = p.summary;
-          state.analysis.leafStatus = p.leafStatus;
-          state.analysis.leafTagClass = p.leafTag;
-          state.analysis.leafFindings = p.leafFindings;
-          state.analysis.fruitStatus = p.fruitStatus;
-          state.analysis.fruitTagClass = p.fruitTag;
-          state.analysis.fruitFindings = p.fruitFindings;
-          if (p.treatment) state.analysis.treatment = p.treatment;
-          if (p.organicRecs) state.analysis.organicRecs = p.organicRecs;
-        }
-      } else {
-        state.analysis.isCalamansi = false;
-        state.analysis.healthScore = 0;
-        state.analysis.statusText = { en: 'AI Verification Failed / Invalid Target', fil: 'Bigo ang Pagsusuri / Maling Kuha' };
-        state.analysis.summaryText = { en: 'Could not detect genuine Calamansi foliage or citrus orchard soil in the scan frames. Disease diagnostics aborted to prevent false readings.', fil: 'Hindi kinilala ang larawan bilang dahon o lupa ng Calamansi. Itinigil ang pagsusuri upang maiwasan ang maling ulat.' };
-        state.analysis.leafStatus = { en: 'Unrecognized Target', fil: 'Hindi Calamansi' };
-        state.analysis.leafTagClass = 'tag-danger';
-        state.analysis.fruitStatus = { en: 'No Fruit Detected', fil: 'Walang Calamansi' };
-        state.analysis.fruitTagClass = 'tag-danger';
-      }
-    }
-  } catch (e) {
-    console.warn('[Gemini AI Android] Notice:', e);
-    if (state.activePreset) {
-      const p = PRESETS[state.activePreset];
-      if (p) {
         state.analysis.isCalamansi = true;
         state.analysis.healthScore = p.score;
         state.analysis.statusText = p.statusText;
         state.analysis.summaryText = p.summary;
+        state.analysis.leafStatus = p.leafStatus;
+        state.analysis.leafTagClass = p.leafTag;
+        state.analysis.leafFindings = p.leafFindings;
+        state.analysis.fruitStatus = p.fruitStatus;
+        state.analysis.fruitTagClass = p.fruitTag;
+        state.analysis.fruitFindings = p.fruitFindings;
+        if (p.treatment) state.analysis.treatment = p.treatment;
+        if (p.organicRecs) state.analysis.organicRecs = p.organicRecs;
+      } else {
+        state.analysis.isCalamansi = false;
+        state.analysis.healthScore = 0;
+        state.analysis.statusText = { en: 'Invalid Target (Not Calamansi / Soil)', fil: 'Hindi Calamansi o Lupa (Maling Kuha)' };
+        state.analysis.summaryText = { en: 'The captured frames do not contain a Calamansi citrus tree or orchard soil. Disease diagnostics aborted to prevent false readings.', fil: 'Hindi kinilala ang larawan bilang dahon o lupa ng Calamansi. Itinigil ang pagsusuri upang maiwasan ang maling ulat.' };
+        state.analysis.leafStatus = { en: 'Unrecognized Target', fil: 'Hindi Calamansi' };
+        state.analysis.leafTagClass = 'tag-danger';
+        state.analysis.leafFindings = {
+          en: ['Target in frame is not identified as Calamansi foliage.', 'Please point camera at a Calamansi tree.'],
+          fil: ['Ang bagay sa larawan ay hindi dahon ng Calamansi.', 'Itutok ang camera sa puno ng Calamansi.']
+        };
+        state.analysis.fruitStatus = { en: 'No Fruit Detected', fil: 'Walang Calamansi' };
+        state.analysis.fruitTagClass = 'tag-danger';
+        state.analysis.fruitFindings = {
+          en: ['No Calamansi citrus fruit detected.'],
+          fil: ['Walang nakitang bunga ng Calamansi.']
+        };
+        state.analysis.treatment = {
+          type: 'bad',
+          title: { en: 'Aim at Calamansi Tree', fil: 'Itutok sa Calamansi' },
+          desc: { en: 'Point optical sensor at a Calamansi tree to receive health diagnostics.', fil: 'Itutok ang scanner sa totoong puno ng Calamansi.' }
+        };
+        state.analysis.organicRecs = [];
       }
+    }
+  } catch (e) {
+    console.warn('[Gemini AI Android] Notice:', e);
+    if (!hasImages && state.activePreset && PRESETS[state.activePreset]) {
+      const p = PRESETS[state.activePreset];
+      state.analysis.isCalamansi = true;
+      state.analysis.healthScore = p.score;
+      state.analysis.statusText = p.statusText;
+      state.analysis.summaryText = p.summary;
     } else {
       state.analysis.isCalamansi = false;
       state.analysis.healthScore = 0;
-      state.analysis.statusText = { en: 'AI Verification Failed', fil: 'Bigo ang Pagsusuri' };
-      state.analysis.summaryText = { en: 'Could not connect to Gemini Vision AI service. Ensure network connectivity and point the camera at a Calamansi tree.', fil: 'Hindi makakonekta sa AI. Siguraduhing may internet at itutok sa Calamansi.' };
+      state.analysis.statusText = { en: 'Invalid Target / Target Not Found', fil: 'Hindi Calamansi o Lupa (Maling Kuha)' };
+      state.analysis.summaryText = { en: 'Could not detect genuine Calamansi tree foliage or citrus orchard soil. Ensure the camera is aimed at a Calamansi tree.', fil: 'Hindi nakakita ng dahon o lupa ng Calamansi. Siguraduhing nakatutok ang camera sa puno ng Calamansi.' };
+      state.analysis.leafStatus = { en: 'Scan Target Error', fil: 'Maling Kuha' };
+      state.analysis.leafTagClass = 'tag-danger';
+      state.analysis.leafFindings = {
+        en: ['Frame does not match Citrus microcarpa foliage.'],
+        fil: ['Hindi kinikilala ang dahon ng Calamansi sa larawan.']
+      };
+      state.analysis.fruitStatus = { en: 'No Fruit Detected', fil: 'Walang Calamansi' };
+      state.analysis.fruitTagClass = 'tag-danger';
+      state.analysis.treatment = {
+        type: 'bad',
+        title: { en: 'Aim at Calamansi Tree', fil: 'Itutok sa Calamansi' },
+        desc: { en: 'Please point camera at a live Calamansi citrus tree.', fil: 'Itutok ang camera sa totoong puno ng Calamansi.' }
+      };
+      state.analysis.organicRecs = [];
     }
   } finally {
     if (btn) {
@@ -1620,10 +1669,10 @@ async function syncToFirestore(source = 'android') {
       lastAutoScanIso: state.lastAutoScanIso,
       weather: state.weather,
       quadrants: [
-        { angle: 0, img: state.quadrants[0]?.img || (p ? p.img0 : '') },
-        { angle: 90, img: state.quadrants[1]?.img || (p ? p.img90 : '') },
-        { angle: 180, img: state.quadrants[2]?.img || (p ? p.img180 : '') },
-        { angle: 270, img: state.quadrants[3]?.img || (p ? p.img270 : '') }
+        { angle: 0, img: state.quadrants[0]?.img || (state.activePreset && p ? p.img0 : '') },
+        { angle: 90, img: state.quadrants[1]?.img || (state.activePreset && p ? p.img90 : '') },
+        { angle: 180, img: state.quadrants[2]?.img || (state.activePreset && p ? p.img180 : '') },
+        { angle: 270, img: state.quadrants[3]?.img || (state.activePreset && p ? p.img270 : '') }
       ],
       source: source,
       updatedAt: serverTimestamp(),
@@ -1711,6 +1760,9 @@ function initRealtimeSync() {
             document.querySelectorAll('.preset-chip').forEach(c => {
               c.classList.toggle('active', c.dataset.preset === data.activePreset);
             });
+          } else {
+            state.activePreset = '';
+            document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
           }
 
           if (data.activeAngleIndex !== undefined) {
