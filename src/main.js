@@ -1149,7 +1149,7 @@ async function runGeminiAnalysis() {
     return;
   }
 
-  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6L_aQaYp5ZS3r7bmq-KLCXQJufPXSzOqmIoCgZkca8nuQ').trim();
+  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6K4FQQHKgk_LkItp6T28DrsUA8CvgJCaD_OnDmbNANL4g').trim();
 
   try {
     const promptText = `You are an expert precision plant pathologist and computer vision agronomist specializing strictly in Philippine Calamansi (Citrus microcarpa / Citrofortunella microcarpa) citrus trees, foliar canopies, citrus fruits, and orchard soil.
@@ -2031,23 +2031,31 @@ function initRealtimeSync() {
     onSnapshot(syncDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        // Sync whenever incoming data has valid scan data or source is not current instant
-        if (data.source !== 'android' || (state.analysis.healthScore === 0 && data.healthScore > 0)) {
+        const hasIncomingImages = data.quadrants && Array.isArray(data.quadrants) && data.quadrants.some(q => q && q.img && q.img.trim() !== '');
+        const hasIncomingScore = data.healthScore !== undefined && data.healthScore !== null && data.healthScore > 0;
+
+        // Sync whenever incoming data has valid scan data or source is remote
+        if (data.source !== 'android' || (state.analysis.healthScore === 0 && hasIncomingScore)) {
           isReceivingRemoteSync = true;
-          console.log('[Auto-Sync] Android applied real-time sync:', data);
+          console.log('[Auto-Sync Android] Applied real-time sync:', data);
           applyScanDataToState(data, true);
           setTimeout(() => { isReceivingRemoteSync = false; }, 500);
+        }
+
+        // If system_sync document has no images and no healthScore, fallback to loading the most recent archived scan from 'scans'
+        if (!hasIncomingImages && !hasIncomingScore && (!state.quadrants || state.quadrants.every(q => !q || !q.img || q.img.trim() === ''))) {
+          loadLatestScanFromCloud();
         }
       } else {
         // If system_sync document is empty, fallback to the latest scan from scans collection
         loadLatestScanFromCloud();
       }
     }, (err) => {
-      console.warn('[Auto-Sync] Android Firestore listener error:', err);
+      console.warn('[Auto-Sync Android] Firestore listener error:', err);
       loadLatestScanFromCloud();
     });
   } catch (e) {
-    console.warn('[Auto-Sync] Android listener error:', e);
+    console.warn('[Auto-Sync Android] Listener error:', e);
     loadLatestScanFromCloud();
   }
 }
